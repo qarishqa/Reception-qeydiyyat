@@ -299,13 +299,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+               <TableHeader>
                 <TableRow>
                   <TableHead className="font-semibold">Müştəri</TableHead>
                   <TableHead className="font-semibold">Əlaqə</TableHead>
                   <TableHead className="font-semibold">Detallar</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Əlavə Etdi</TableHead>
                   <TableHead className="font-semibold">Tarix</TableHead>
                 </TableRow>
               </TableHeader>
@@ -323,18 +321,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-1">
+                      {customer.email && (
                         <div className="flex items-center gap-1 text-sm">
-                          <Phone className="w-3 h-3 text-muted-foreground" />
-                          {customer.phone}
+                          <Mail className="w-3 h-3 text-muted-foreground" />
+                          {customer.email}
                         </div>
-                        {customer.email && (
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Mail className="w-3 h-3" />
-                            {customer.email}
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1 text-sm">
@@ -357,12 +349,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                           </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(customer.status)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {customer.profiles?.full_name || 'Bilinmir'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
