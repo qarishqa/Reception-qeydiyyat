@@ -32,7 +32,7 @@ interface DashboardStats {
 }
 
 const Dashboard = () => {
-  const { profile, signOut, isAdmin } = useAuth();
+  const { profile, signOut, isAdmin, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState<DashboardStats>({
@@ -40,11 +40,18 @@ const Dashboard = () => {
     todayCustomers: 0,
     monthlyCustomers: 0
   });
-  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
   }, []);
+
+  // Authentication guard - redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   const fetchStats = async () => {
     try {
@@ -76,7 +83,7 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
   };
 
@@ -89,7 +96,8 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) {
+  // Show loading while checking authentication or fetching stats
+  if (authLoading || statsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -98,6 +106,11 @@ const Dashboard = () => {
         </div>
       </div>
     );
+  }
+
+  // If not authenticated, don't render dashboard (will redirect in useEffect)
+  if (!user) {
+    return null;
   }
 
   return (
