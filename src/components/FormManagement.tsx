@@ -221,7 +221,7 @@ const FormManagement = () => {
       const questionData = {
         question_text: formData.question_text,
         question_type: formData.question_type,
-        options: formData.question_type === 'select' || formData.question_type === 'radio' 
+        options: formData.question_type === 'select' || formData.question_type === 'radio' || formData.question_type === 'checkbox' 
           ? formData.options.split('\n').filter(opt => opt.trim()) 
           : null,
         is_required: formData.is_required,
@@ -454,7 +454,7 @@ const FormManagement = () => {
                   </Select>
                 </div>
 
-                {(formData.question_type === 'select' || formData.question_type === 'radio') && (
+                {(formData.question_type === 'select' || formData.question_type === 'radio' || formData.question_type === 'checkbox') && (
                   <div className="grid gap-2">
                     <Label htmlFor="options">Seçim variantları</Label>
                     <Textarea
