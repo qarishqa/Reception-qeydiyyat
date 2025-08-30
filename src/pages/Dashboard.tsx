@@ -296,7 +296,10 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'customers' && <CustomerList onStatsUpdate={fetchStats} />}
-        {activeTab === 'add-customer' && <CustomerForm onSuccess={fetchStats} />}
+        {activeTab === 'add-customer' && <CustomerForm onSuccess={() => {
+          fetchStats();
+          setActiveTab('customers');
+        }} />}
         {activeTab === 'analytics' && isAdmin && <Analytics />}
         {activeTab === 'form-management' && isAdmin && <FormManagement />}
         {activeTab === 'user-management' && isAdmin && <UserManagement />}
