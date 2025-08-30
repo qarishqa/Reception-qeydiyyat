@@ -9,13 +9,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, UserCog, Mail, Calendar, Shield, Users } from 'lucide-react';
+import { Plus, Edit, UserCog, Mail, Calendar, Shield, Users, Key } from 'lucide-react';
 
 interface UserProfile {
   id: string;
   user_id: string;
   full_name: string;
   role: 'admin' | 'reception';
+  username: string;
   created_at: string;
   updated_at: string;
 }
@@ -24,16 +25,24 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [changingPasswordUser, setChangingPasswordUser] = useState<UserProfile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: '',
     full_name: '',
     role: 'reception' as 'admin' | 'reception'
+  });
+
+  // Password change form state
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
   });
 
   useEffect(() => {
@@ -64,7 +73,7 @@ const UserManagement = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email.trim() || !formData.full_name.trim()) {
+    if (!formData.username.trim() || !formData.full_name.trim()) {
       toast({
         title: "Xəta",
         description: "Bütün məcburi sahələri doldurun",
@@ -86,11 +95,12 @@ const UserManagement = () => {
 
     try {
       if (editingUser) {
-        // Update existing user role
+        // Update existing user
         const { error } = await supabase
           .from('profiles')
           .update({ 
             full_name: formData.full_name,
+            username: formData.username,
             role: formData.role 
           })
           .eq('id', editingUser.id);
@@ -102,13 +112,15 @@ const UserManagement = () => {
           description: "İstifadəçi məlumatları yeniləndi"
         });
       } else {
-        // Create new user
+        // Create new user with username as email
+        const emailFromUsername = `${formData.username}@performance-center.az`;
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
+          email: emailFromUsername,
           password: formData.password,
           options: {
             data: {
               full_name: formData.full_name,
+              username: formData.username
             }
           }
         });
@@ -116,16 +128,17 @@ const UserManagement = () => {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Update the profile with the selected role (default is reception from trigger)
-          if (formData.role === 'admin') {
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({ role: 'admin' })
-              .eq('user_id', authData.user.id);
+          // Update the profile with the selected role and username
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+              role: formData.role,
+              username: formData.username
+            })
+            .eq('user_id', authData.user.id);
 
-            if (updateError) {
-              console.error('Error updating role:', updateError);
-            }
+          if (updateError) {
+            console.error('Error updating user data:', updateError);
           }
 
           toast({
@@ -152,23 +165,86 @@ const UserManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      email: '',
+      username: '',
       password: '',
       full_name: '',
       role: 'reception'
     });
     setEditingUser(null);
+    setPasswordData({
+      newPassword: '',
+      confirmPassword: ''
+    });
   };
 
   const handleEdit = (user: UserProfile) => {
     setEditingUser(user);
     setFormData({
-      email: '', // We don't show email in edit mode
+      username: user.username || '',
       password: '',
       full_name: user.full_name,
       role: user.role
     });
     setIsDialogOpen(true);
+  };
+
+  const handlePasswordChange = (user: UserProfile) => {
+    setChangingPasswordUser(user);
+    setPasswordData({
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Xəta",
+        description: "Şifrələr uyğun gəlmir",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Xəta",
+        description: "Şifrə ən azı 6 simvol olmalıdır",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      // Update user password via Supabase Admin API
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Uğur!",
+        description: "Şifrə uğurla dəyişdirildi"
+      });
+
+      setIsPasswordDialogOpen(false);
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast({
+        title: "Xəta",
+        description: error.message || "Şifrə dəyişdirilərkən xəta baş verdi",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -231,19 +307,17 @@ const UserManagement = () => {
               </DialogHeader>
               
               <div className="grid gap-4 py-4">
-                {!editingUser && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">E-poçt ünvanı *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="istifadeci@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      required
-                    />
-                  </div>
-                )}
+                <div className="grid gap-2">
+                  <Label htmlFor="username">İstifadəçi adı *</Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="istifadeci_adi"
+                    value={formData.username}
+                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                    required
+                  />
+                </div>
 
                 {!editingUser && (
                   <div className="grid gap-2">
@@ -365,15 +439,26 @@ const UserManagement = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(user)}
-                          className="flex items-center gap-2"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Redaktə
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(user)}
+                            className="flex items-center gap-2"
+                          >
+                            <Edit className="w-4 h-4" />
+                            Redaktə
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePasswordChange(user)}
+                            className="flex items-center gap-2"
+                          >
+                            <Key className="w-4 h-4" />
+                            Şifrə Dəyiş
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -383,6 +468,63 @@ const UserManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Password Change Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+        setIsPasswordDialogOpen(open);
+        if (!open) {
+          setPasswordData({ newPassword: '', confirmPassword: '' });
+          setChangingPasswordUser(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handlePasswordSubmit}>
+            <DialogHeader>
+              <DialogTitle>Şifrə Dəyişdir</DialogTitle>
+              <DialogDescription>
+                {changingPasswordUser?.full_name} istifadəçisi üçün yeni şifrə təyin edin.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="newPassword">Yeni şifrə *</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Ən azı 6 simvol"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  minLength={6}
+                  required
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword">Şifrəni təkrarla *</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Şifrəni təkrarla"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  minLength={6}
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+                İmtina
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Gözləyin...' : 'Şifrəni Dəyişdir'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
