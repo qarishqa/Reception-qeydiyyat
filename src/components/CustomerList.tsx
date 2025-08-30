@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Table, 
   TableBody, 
@@ -23,7 +26,10 @@ import {
   Calendar,
   User,
   Car,
-  TrendingUp
+  TrendingUp,
+  Edit,
+  Save,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,9 +42,10 @@ interface Customer {
   gender: string;
   interested_model: string;
   ad_source: string;
-  status: string;
+  status: 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost';
   notes: string;
   created_at: string;
+  created_by: string;
   profiles?: {
     full_name: string;
   } | null;
@@ -49,7 +56,7 @@ interface CustomerListProps {
 }
 
 const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +64,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -198,6 +209,64 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     return [...new Set(customers.map(customer => customer[field]).filter(Boolean))];
   };
 
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setEditFormData({
+      full_name: customer.full_name,
+      phone: customer.phone,
+      email: customer.email,
+      age_group: customer.age_group,
+      gender: customer.gender,
+      interested_model: customer.interested_model,
+      ad_source: customer.ad_source,
+      status: customer.status,
+      notes: customer.notes
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateCustomer = async () => {
+    if (!editingCustomer || !user) return;
+    
+    setEditLoading(true);
+    try {
+      const updateData = {
+        full_name: editFormData.full_name,
+        phone: editFormData.phone,
+        email: editFormData.email,
+        age_group: editFormData.age_group,
+        gender: editFormData.gender,
+        interested_model: editFormData.interested_model,
+        ad_source: editFormData.ad_source,
+        status: editFormData.status as 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost',
+        notes: editFormData.notes
+      };
+
+      const { error } = await supabase
+        .from('customers')
+        .update(updateData)
+        .eq('id', editingCustomer.id);
+      
+      if (error) throw error;
+      
+      toast.success('Müştəri məlumatları uğurla yeniləndi!');
+      setEditDialogOpen(false);
+      setEditingCustomer(null);
+      setEditFormData({});
+      fetchCustomers();
+      onStatsUpdate();
+    } catch (error: any) {
+      console.error('Error updating customer:', error);
+      toast.error('Xəta: ' + error.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const canEditCustomer = (customer: Customer) => {
+    return isAdmin || customer.created_by === user?.id;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -309,6 +378,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                   <TableHead className="font-semibold py-4 px-6">Müştəri</TableHead>
                   <TableHead className="font-semibold py-4 px-6">Detallar</TableHead>
                   <TableHead className="font-semibold py-4 px-6">Tarix</TableHead>
+                  <TableHead className="font-semibold py-4 px-6 w-20">Əməliyyatlar</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -375,6 +445,18 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {canEditCustomer(customer) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCustomer(customer)}
+                          className="h-8 w-8 p-0 hover:bg-primary/10"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -394,6 +476,165 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-primary" />
+              Müştəri Məlumatlarını Düzəlt
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingCustomer && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Ad və Soyad *</Label>
+                  <Input
+                    id="edit-name"
+                    value={editFormData.full_name || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                    placeholder="Müştərinin adı və soyadı"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Telefon</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editFormData.phone || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Telefon nömrəsi"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editFormData.email || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Email ünvanı"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-age">Yaş Qrupu</Label>
+                  <Select
+                    value={editFormData.age_group || ''}
+                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, age_group: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Yaş qrupu seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="18-25">18-25</SelectItem>
+                      <SelectItem value="26-35">26-35</SelectItem>
+                      <SelectItem value="36-45">36-45</SelectItem>
+                      <SelectItem value="46-55">46-55</SelectItem>
+                      <SelectItem value="55+">55+</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gender">Cins</Label>
+                  <Select
+                    value={editFormData.gender || ''}
+                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, gender: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Cins seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Kişi">Kişi</SelectItem>
+                      <SelectItem value="Qadın">Qadın</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-model">Maraqlandığı Model</Label>
+                  <Input
+                    id="edit-model"
+                    value={editFormData.interested_model || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, interested_model: e.target.value }))}
+                    placeholder="Avtomobil modeli"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-source">Reklam Mənbəyi</Label>
+                  <Input
+                    id="edit-source"
+                    value={editFormData.ad_source || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, ad_source: e.target.value }))}
+                    placeholder="Reklamı harada görmüşdür"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select
+                    value={editFormData.status || ''}
+                    onValueChange={(value: 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost') => setEditFormData(prev => ({ ...prev, status: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new_inquiry">Yeni Sorğu</SelectItem>
+                      <SelectItem value="test_drive_scheduled">Test Sürüşü</SelectItem>
+                      <SelectItem value="negotiating">Danışıqlar</SelectItem>
+                      <SelectItem value="sold">Satıldı</SelectItem>
+                      <SelectItem value="lost">İtkin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Qeydlər</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={editFormData.notes || ''}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Əlavə qeydlər"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                  disabled={editLoading}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Ləğv et
+                </Button>
+                <Button
+                  onClick={handleUpdateCustomer}
+                  disabled={editLoading || !editFormData.full_name}
+                  className="gradient-primary"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {editLoading ? 'Yenilənir...' : 'Yadda saxla'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
