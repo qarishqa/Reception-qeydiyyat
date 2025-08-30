@@ -208,6 +208,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                      question.question_text.toLowerCase().includes('model') ? 'interested_model' :
                      question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
     
+    // Check if this is a phone or email field
+    const isPhoneField = question.question_text.toLowerCase().includes('telefon');
+    const isEmailField = question.question_text.toLowerCase().includes('email');
+    
     // Handle conditional questions
     if (question.parent_question_id) {
       const parentQuestion = formQuestions.find(q => q.id === question.parent_question_id);
@@ -234,6 +238,37 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
 
     // Render different input types based on question type
     const renderInput = () => {
+      // Force phone and email fields to be text inputs
+      if (isPhoneField) {
+        return (
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              type="tel"
+              value={currentValue || ''}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="pl-10 transition-smooth focus:shadow-primary"
+            />
+          </div>
+        );
+      }
+      
+      if (isEmailField) {
+        return (
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              type="email"
+              value={currentValue || ''}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="pl-10 transition-smooth focus:shadow-primary"
+            />
+          </div>
+        );
+      }
+      
       switch (question.question_type) {
         case 'select':
         case 'dropdown':
