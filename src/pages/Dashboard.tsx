@@ -14,7 +14,9 @@ import {
   Settings,
   BarChart3,
   Phone,
-  Mail
+  Mail,
+  HelpCircle,
+  UserCog
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import CustomerForm from '@/components/CustomerForm';
@@ -189,19 +191,47 @@ const Dashboard = () => {
               </div>
             </button>
             {isAdmin && (
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
-                  activeTab === 'analytics'
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Analitika
-                </div>
-              </button>
+              <>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
+                    activeTab === 'analytics'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Analitika
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('form-management')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
+                    activeTab === 'form-management'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4" />
+                    Form İdarəçiliyi
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('user-management')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
+                    activeTab === 'user-management'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <UserCog className="w-4 h-4" />
+                    İstifadəçilər
+                  </div>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -276,6 +306,46 @@ const Dashboard = () => {
         {activeTab === 'customers' && <CustomerList onStatsUpdate={fetchStats} />}
         {activeTab === 'add-customer' && <CustomerForm onSuccess={fetchStats} />}
         {activeTab === 'analytics' && isAdmin && <Analytics />}
+        {activeTab === 'form-management' && isAdmin && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">Form İdarəçiliyi</h2>
+              <p className="text-muted-foreground">Müştəri formu suallarını idarə edin</p>
+            </div>
+            <Card className="card-elevated">
+              <CardHeader>
+                <CardTitle>Form Sualları</CardTitle>
+                <CardDescription>Müştəri formu üçün sualları əlavə edin və ya redaktə edin</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <HelpCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Form sualları idarəetmə komponenti hazırlanır...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        {activeTab === 'user-management' && isAdmin && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">İstifadəçi İdarəçiliyi</h2>
+              <p className="text-muted-foreground">Sistem istifadəçilərini idarə edin</p>
+            </div>
+            <Card className="card-elevated">
+              <CardHeader>
+                <CardTitle>İstifadəçilər</CardTitle>
+                <CardDescription>Sistem istifadəçilərinin rollarını idarə edin</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <UserCog className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>İstifadəçi idarəetmə komponenti hazırlanır...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
     </div>
   );
