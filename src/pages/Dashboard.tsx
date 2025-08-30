@@ -23,6 +23,7 @@ import CustomerForm from '@/components/CustomerForm';
 import CustomerList from '@/components/CustomerList';
 import Analytics from '@/components/Analytics';
 import FormManagement from '@/components/FormManagement';
+import UserManagement from '@/components/UserManagement';
 
 interface DashboardStats {
   totalCustomers: number;
@@ -308,26 +309,7 @@ const Dashboard = () => {
         {activeTab === 'add-customer' && <CustomerForm onSuccess={fetchStats} />}
         {activeTab === 'analytics' && isAdmin && <Analytics />}
         {activeTab === 'form-management' && isAdmin && <FormManagement />}
-        {activeTab === 'user-management' && isAdmin && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">İstifadəçi İdarəçiliyi</h2>
-              <p className="text-muted-foreground">Sistem istifadəçilərini idarə edin</p>
-            </div>
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>İstifadəçilər</CardTitle>
-                <CardDescription>Sistem istifadəçilərinin rollarını idarə edin</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <UserCog className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>İstifadəçi idarəetmə komponenti hazırlanır...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {activeTab === 'user-management' && isAdmin && <UserManagement />}
       </main>
     </div>
   );
