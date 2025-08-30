@@ -132,12 +132,12 @@ const SortableQuestionItem = ({
               <div className="mt-2">
                 <p className="text-xs text-muted-foreground mb-1">Variantlar:</p>
                 <div className="flex flex-wrap gap-1">
-                  {question.options.slice(0, 3).map((option, i) => {
-                     const hasSubQuestion = allQuestions.some(q => 
-                       q.parent_question_id === question.id && q.trigger_value === option
-                     );
+                  {question.options.map((option, i) => {
+                    const hasSubQuestion = allQuestions.some(q => 
+                      q.parent_question_id === question.id && q.trigger_value === option
+                    );
                     return (
-                      <div key={i} className="flex items-center gap-1">
+                      <div key={i} className="flex items-center gap-1 p-1 rounded border border-border/50">
                         <Badge variant="outline" className="text-xs">
                           {option}
                         </Badge>
@@ -145,8 +145,13 @@ const SortableQuestionItem = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className={`h-5 w-5 p-0 ${hasSubQuestion ? 'text-green-500' : 'text-muted-foreground hover:text-primary'}`}
+                            className={`h-6 w-6 p-0 rounded-full ${
+                              hasSubQuestion 
+                                ? 'text-green-600 bg-green-100 hover:bg-green-200' 
+                                : 'text-primary hover:bg-primary/20 border border-primary/30'
+                            }`}
                             onClick={() => onCreateSubQuestion(question.id, option)}
+                            title={hasSubQuestion ? 'Sub-sual mövcuddur' : 'Sub-sual əlavə et'}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -154,12 +159,12 @@ const SortableQuestionItem = ({
                       </div>
                     );
                   })}
-                  {question.options.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{question.options.length - 3}
-                    </Badge>
-                  )}
                 </div>
+                {!isSubQuestion && question.options.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Variant yanındakı + düyməsinə basaraq sub-sual əlavə edin
+                  </p>
+                )}
               </div>
             )}
           </div>
