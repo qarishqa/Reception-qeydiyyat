@@ -68,9 +68,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
   const [editLoading, setEditLoading] = useState(false);
+  const [formQuestions, setFormQuestions] = useState<any[]>([]);
 
   useEffect(() => {
     fetchCustomers();
+    fetchFormQuestions();
   }, []);
 
   useEffect(() => {
@@ -105,6 +107,21 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       toast.error('Müştəri məlumatları yüklənə bilmədi');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFormQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('form_questions')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (error) throw error;
+      setFormQuestions(data || []);
+    } catch (error) {
+      console.error('Error fetching form questions:', error);
     }
   };
 
@@ -261,6 +278,87 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
   const canEditCustomer = (customer: Customer) => {
     return isAdmin || customer.created_by === user?.id;
+  };
+
+  const renderEditFormField = (question: any) => {
+    const fieldName = question.question_text.toLowerCase().includes('yaş') ? 'age_group' :
+                     question.question_text.toLowerCase().includes('cins') ? 'gender' :
+                     question.question_text.toLowerCase().includes('model') ? 'interested_model' :
+                     question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
+    
+    const currentValue = fieldName ? editFormData[fieldName as keyof typeof editFormData] : '';
+    
+    const handleValueChange = (value: string) => {
+      if (fieldName) {
+        setEditFormData(prev => ({ ...prev, [fieldName]: value }));
+      }
+    };
+
+    // Render different input types based on question type
+    switch (question.question_type) {
+      case 'select':
+      case 'dropdown':
+        return (
+          <Select
+            value={String(currentValue || '')}
+            onValueChange={handleValueChange}
+          >
+            <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+              <SelectValue placeholder={`${question.question_text} seçin`} />
+            </SelectTrigger>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              {question.options && question.options.map((option: string) => (
+                <SelectItem key={option} value={option} className="hover:bg-accent">
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      
+      case 'text':
+      case 'input':
+        return (
+          <Input
+            type="text"
+            value={String(currentValue || '')}
+            onChange={(e) => handleValueChange(e.target.value)}
+            placeholder={`${question.question_text} daxil edin`}
+            className="transition-smooth focus:shadow-primary"
+          />
+        );
+      
+      case 'textarea':
+        return (
+          <Textarea
+            value={String(currentValue || '')}
+            onChange={(e) => handleValueChange(e.target.value)}
+            placeholder={`${question.question_text} daxil edin`}
+            rows={3}
+            className="transition-smooth focus:shadow-primary"
+          />
+        );
+      
+      default:
+        // Default to select for backwards compatibility
+        return (
+          <Select
+            value={String(currentValue || '')}
+            onValueChange={handleValueChange}
+          >
+            <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+              <SelectValue placeholder={`${question.question_text} seçin`} />
+            </SelectTrigger>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              {question.options && question.options.map((option: string) => (
+                <SelectItem key={option} value={option} className="hover:bg-accent">
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+    }
   };
 
   if (loading) {
@@ -485,126 +583,74 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
           
           {editingCustomer && (
             <div className="space-y-4 py-4">
+              {/* Phone Number */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Telefon Nömrəsi</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    id="edit-phone"
+                    type="tel"
+                    value={editFormData.phone || ''}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="994501234567"
+                    className="pl-10 transition-smooth focus:shadow-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Ad və Soyad *</Label>
                   <Input
                     id="edit-name"
+                    type="text"
                     value={editFormData.full_name || ''}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, full_name: e.target.value }))}
                     placeholder="Müştərinin adı və soyadı"
+                    className="transition-smooth focus:shadow-primary"
+                    required
                   />
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-phone">Telefon</Label>
-                  <Input
-                    id="edit-phone"
-                    value={editFormData.phone || ''}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Telefon nömrəsi"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-email">Email</Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    value={editFormData.email || ''}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Email ünvanı"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-age">Yaş Qrupu</Label>
-                  <Select
-                    value={editFormData.age_group || ''}
-                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, age_group: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Yaş qrupu seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="18-25">18-25</SelectItem>
-                      <SelectItem value="26-35">26-35</SelectItem>
-                      <SelectItem value="36-45">36-45</SelectItem>
-                      <SelectItem value="46-55">46-55</SelectItem>
-                      <SelectItem value="55+">55+</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={editFormData.email || ''}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="customer@example.com"
+                      className="pl-10 transition-smooth focus:shadow-primary"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-gender">Cins</Label>
-                  <Select
-                    value={editFormData.gender || ''}
-                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, gender: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Cins seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Kişi">Kişi</SelectItem>
-                      <SelectItem value="Qadın">Qadın</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-model">Maraqlandığı Model</Label>
-                  <Select
-                    value={editFormData.interested_model || ''}
-                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, interested_model: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Model seçin" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg z-50">
-                      <SelectItem value="Baic X7">Baic X7</SelectItem>
-                      <SelectItem value="Baic X55">Baic X55</SelectItem>
-                      <SelectItem value="Baic X35">Baic X35</SelectItem>
-                      <SelectItem value="Baic BJ40">Baic BJ40</SelectItem>
-                      <SelectItem value="Baic EU5">Baic EU5</SelectItem>
-                      <SelectItem value="Baic EC3">Baic EC3</SelectItem>
-                      <SelectItem value="Baic U5 PLUS">Baic U5 PLUS</SelectItem>
-                      <SelectItem value="Digər">Digər</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-source">Reklam Mənbəyi</Label>
-                  <Select
-                    value={editFormData.ad_source || ''}
-                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, ad_source: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Mənbə seçin" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg z-50">
-                      <SelectItem value="Instagram">Instagram</SelectItem>
-                      <SelectItem value="Facebook">Facebook</SelectItem>
-                      <SelectItem value="Tiktok">Tiktok</SelectItem>
-                      <SelectItem value="Youtube">Youtube</SelectItem>
-                      <SelectItem value="Google Ads">Google Ads</SelectItem>
-                      <SelectItem value="Sosial şəbəkə">Sosial şəbəkə</SelectItem>
-                      <SelectItem value="Dost tövsiyəsi">Dost tövsiyəsi</SelectItem>
-                      <SelectItem value="Televiziya">Televiziya</SelectItem>
-                      <SelectItem value="Radio">Radio</SelectItem>
-                      <SelectItem value="Qəzet">Qəzet</SelectItem>
-                      <SelectItem value="Küçə reklamı">Küçə reklamı</SelectItem>
-                      <SelectItem value="Digər">Digər</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Dynamic Form Fields - match CustomerForm exactly */}
+              <div className="space-y-4">
+                {formQuestions
+                  .filter(q => !q.parent_question_id) // Only render top-level questions
+                  .filter(q => {
+                    // Filter out questions that duplicate static fields
+                    const questionText = q.question_text.toLowerCase();
+                    return !questionText.includes('telefon') && 
+                           !questionText.includes('email') && 
+                           !questionText.includes('ad və soyad') &&
+                           !questionText.includes('müştərinin adı');
+                  })
+                  .map(question => (
+                    <div key={question.id} className="space-y-2">
+                      <Label>
+                        {question.question_text}
+                        {question.is_required && <span className="text-destructive ml-1">*</span>}
+                      </Label>
+                      {renderEditFormField(question)}
+                    </div>
+                  ))}
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
