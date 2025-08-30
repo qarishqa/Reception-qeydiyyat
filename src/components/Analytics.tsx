@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Users, Car, Target, Calendar } from 'lucide-react';
+import { TrendingUp, Users, Car, Target, Calendar, Filter, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AnalyticsData {
   modelStats: Array<{ name: string; value: number }>;
@@ -25,6 +29,8 @@ const Analytics = () => {
   });
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('all');
+  const [selectedChart, setSelectedChart] = useState<string | null>(null);
+  const [drillDownData, setDrillDownData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -180,6 +186,38 @@ const Analytics = () => {
     }
   };
 
+  const handleChartClick = async (data: any, chartType: string) => {
+    if (!data || !data.name) return;
+    
+    setSelectedChart(chartType);
+    toast.success(`${data.name} üçün məlumatlar yüklənir...`);
+    
+    try {
+      // Fetch detailed data based on the clicked item
+      let query = supabase.from('customers').select('*');
+      
+      switch(chartType) {
+        case 'model':
+          query = query.eq('interested_model', data.name);
+          break;
+        case 'source':
+          query = query.eq('ad_source', data.name);
+          break;
+        case 'age':
+          query = query.eq('age_group', data.name);
+          break;
+      }
+      
+      const { data: customers, error } = await query;
+      if (error) throw error;
+      
+      setDrillDownData(customers || []);
+    } catch (error) {
+      console.error('Error fetching drill-down data:', error);
+      toast.error('Məlumatlar yüklənə bilmədi');
+    }
+  };
+
   const COLORS = ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd', '#c3dafe', '#dbeafe'];
 
   if (loading) {
@@ -194,101 +232,218 @@ const Analytics = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
           <h2 className="text-2xl font-bold text-foreground mb-2">Analitika və Hesabatlar</h2>
           <p className="text-muted-foreground">Müştəri məlumatlarının təhlili və statistikası</p>
-        </div>
+        </motion.div>
         
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Vaxt aralığı" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Bütün Vaxtlar</SelectItem>
-            <SelectItem value="week">Son Həftə</SelectItem>
-            <SelectItem value="month">Son Ay</SelectItem>
-            <SelectItem value="quarter">Son 3 Ay</SelectItem>
-            <SelectItem value="year">Son İl</SelectItem>
-          </SelectContent>
-        </Select>
+        <motion.div 
+          className="flex gap-2"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Vaxt aralığı" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün Vaxtlar</SelectItem>
+              <SelectItem value="week">Son Həftə</SelectItem>
+              <SelectItem value="month">Son Ay</SelectItem>
+              <SelectItem value="quarter">Son 3 Ay</SelectItem>
+              <SelectItem value="year">Son İl</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {selectedChart && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedChart(null);
+                setDrillDownData([]);
+              }}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Filtri Təmizlə
+            </Button>
+          )}
+        </motion.div>
       </div>
 
+      {selectedChart && drillDownData.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Card className="card-elevated border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Seçilmiş Məlumatlar
+                <Badge className="ml-2">{drillDownData.length} müştəri</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                {drillDownData.slice(0, 8).map((customer, index) => (
+                  <motion.div
+                    key={customer.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="p-3 bg-muted/50 rounded-lg"
+                  >
+                    <p className="font-medium truncate">{customer.full_name}</p>
+                    <p className="text-muted-foreground text-xs">{customer.phone}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {new Date(customer.created_at).toLocaleDateString('az-AZ')}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+              {drillDownData.length > 8 && (
+                <p className="text-center text-muted-foreground text-sm mt-4">
+                  ... və daha {drillDownData.length - 8} müştəri
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Monthly Trend */}
-      <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            Aylıq Trend
-          </CardTitle>
-          <CardDescription>Son 6 ayda müştəri və satış trendi</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analyticsData.monthlyStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="customers" stroke="#1e40af" strokeWidth={2} name="Müştərilər" />
-              <Line type="monotone" dataKey="sold" stroke="#16a34a" strokeWidth={2} name="Satışlar" />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Aylıq Trend
+            </CardTitle>
+            <CardDescription>Son 6 ayda müştəri və satış trendi</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={analyticsData.monthlyStats}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip 
+                  contentStyle={{
+                    background: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Line type="monotone" dataKey="customers" stroke="#1e40af" strokeWidth={2} name="Müştərilər" />
+                <Line type="monotone" dataKey="sold" stroke="#16a34a" strokeWidth={2} name="Satışlar" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Model Interest */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Car className="w-5 h-5 text-primary" />
-              Ən Çox Maraqlanılan Modellər
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analyticsData.modelStats}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#1e40af" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card className="card-elevated hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Car className="w-5 h-5 text-primary" />
+                Ən Çox Maraqlanılan Modellər
+                <Badge variant="outline" className="ml-auto">Klikə bilərsiniz</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analyticsData.modelStats}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#1e40af" 
+                    onClick={(data) => handleChartClick(data, 'model')}
+                    className="cursor-pointer hover:opacity-80"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Reklam Mənbələri
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={analyticsData.sourceStats}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {analyticsData.sourceStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="card-elevated hover:shadow-lg transition-shadow cursor-pointer">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Reklam Mənbələri
+                <Badge variant="outline" className="ml-auto">Klikə bilərsiniz</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={analyticsData.sourceStats}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    onClick={(data) => handleChartClick(data, 'source')}
+                    className="cursor-pointer"
+                  >
+                    {analyticsData.sourceStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       {/* Status and Demographics */}
@@ -394,7 +549,7 @@ const Analytics = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

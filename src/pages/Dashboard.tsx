@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,9 @@ import CustomerList from '@/components/CustomerList';
 import Analytics from '@/components/Analytics';
 import FormManagement from '@/components/FormManagement';
 import UserManagement from '@/components/UserManagement';
+import InteractiveKPICard from '@/components/InteractiveKPICard';
+import DashboardNotifications from '@/components/DashboardNotifications';
+import QuickActions from '@/components/QuickActions';
 
 interface DashboardStats {
   totalCustomers: number;
@@ -130,6 +134,7 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <DashboardNotifications />
               <div className="text-right">
                 <p className="text-sm font-medium text-foreground">{profile?.full_name}</p>
                 <div className="flex items-center gap-2">
@@ -244,55 +249,67 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' && (
-          <div className="space-y-8">
-            <div>
+          <motion.div 
+            className="space-y-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               <h2 className="text-2xl font-bold text-foreground mb-2">Ümumi Baxış</h2>
               <p className="text-muted-foreground">Sistem statistikalarına baxış</p>
-            </div>
+            </motion.div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="card-elevated">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Ümumi Müştəri
-                  </CardTitle>
-                  <Users className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.totalCustomers}</div>
-                  <p className="text-xs text-muted-foreground">Bütün müştərilər</p>
-                </CardContent>
-              </Card>
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, staggerChildren: 0.1 }}
+            >
+              <InteractiveKPICard
+                title="Ümumi Müştəri"
+                value={stats.totalCustomers}
+                description="Bütün müştərilər"
+                icon={Users}
+                color="text-primary"
+                onClick={() => setActiveTab('customers')}
+              />
+              <InteractiveKPICard
+                title="Bugünkü Müştərilər"
+                value={stats.todayCustomers}
+                description="Bu gün əlavə edilib"
+                icon={Calendar}
+                color="text-green-600"
+                trend={{
+                  value: 12,
+                  isPositive: true
+                }}
+              />
+              <InteractiveKPICard
+                title="Aylıq Müştərilər"
+                value={stats.monthlyCustomers}
+                description="Bu ay əlavə edilib"
+                icon={TrendingUp}
+                color="text-blue-600"
+                trend={{
+                  value: 8,
+                  isPositive: true
+                }}
+              />
+            </motion.div>
 
-              <Card className="card-elevated">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Bugünkü Müştərilər
-                  </CardTitle>
-                  <Calendar className="h-4 w-4 text-success" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.todayCustomers}</div>
-                  <p className="text-xs text-muted-foreground">Bu gün əlavə edilib</p>
-                </CardContent>
-              </Card>
-
-              <Card className="card-elevated">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Aylıq Müştərilər
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-warning" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.monthlyCustomers}</div>
-                  <p className="text-xs text-muted-foreground">Bu ay əlavə edilib</p>
-                </CardContent>
-              </Card>
-
-            </div>
-          </div>
+            {/* Quick Actions */}
+            <QuickActions
+              onAddCustomer={() => setActiveTab('add-customer')}
+              onViewAnalytics={() => setActiveTab('analytics')}
+              onViewCustomers={() => setActiveTab('customers')}
+            />
+          </motion.div>
         )}
 
         {activeTab === 'customers' && <CustomerList onStatsUpdate={fetchStats} />}
