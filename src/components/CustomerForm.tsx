@@ -462,6 +462,14 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
             <div className="space-y-4">
               {formQuestions
                 .filter(q => !q.parent_question_id) // Only render top-level questions
+                .filter(q => {
+                  // Filter out questions that duplicate static fields
+                  const questionText = q.question_text.toLowerCase();
+                  return !questionText.includes('telefon') && 
+                         !questionText.includes('email') && 
+                         !questionText.includes('ad və soyad') &&
+                         !questionText.includes('müştərinin adı');
+                })
                 .map(question => renderQuestionWithChildren(question))
                 .flat()}
             </div>
