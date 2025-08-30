@@ -61,7 +61,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -78,7 +77,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
   useEffect(() => {
     filterCustomers();
-  }, [customers, searchTerm, statusFilter, modelFilter, sourceFilter]);
+  }, [customers, searchTerm, modelFilter, sourceFilter]);
 
   const fetchCustomers = async () => {
     try {
@@ -136,11 +135,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         customer.phone.includes(searchTerm) ||
         customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(customer => customer.status === statusFilter);
     }
 
     // Model filter
@@ -486,7 +480,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -497,21 +491,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                 className="pl-10 transition-smooth focus:shadow-primary"
               />
             </div>
-
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Bütün Statuslar</SelectItem>
-                <SelectItem value="new_inquiry">Yeni Sorğu</SelectItem>
-                <SelectItem value="test_drive_scheduled">Test Sürüşü</SelectItem>
-                <SelectItem value="negotiating">Danışıqlar</SelectItem>
-                <SelectItem value="sold">Satıldı</SelectItem>
-                <SelectItem value="lost">İtkin</SelectItem>
-              </SelectContent>
-            </Select>
 
             {/* Model Filter */}
             <Select value={modelFilter} onValueChange={setModelFilter}>
@@ -646,7 +625,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
               <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">Müştəri tapılmadı</h3>
               <p className="text-muted-foreground">
-                {searchTerm || statusFilter !== 'all' || modelFilter !== 'all' || sourceFilter !== 'all'
+                {searchTerm || modelFilter !== 'all' || sourceFilter !== 'all'
                   ? 'Filterlərinizi dəyişdirməyi yoxlayın'
                   : 'Hələ heç bir müştəri əlavə edilməyib'}
               </p>
