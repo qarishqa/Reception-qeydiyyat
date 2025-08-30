@@ -64,36 +64,53 @@ export type Database = {
       }
       form_questions: {
         Row: {
+          condition_type: string | null
           created_at: string | null
           display_order: number | null
           id: string
           is_active: boolean | null
           is_required: boolean | null
           options: string[] | null
+          parent_question_id: string | null
           question_text: string
           question_type: string
+          trigger_value: string | null
         }
         Insert: {
+          condition_type?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
           is_required?: boolean | null
           options?: string[] | null
+          parent_question_id?: string | null
           question_text: string
           question_type: string
+          trigger_value?: string | null
         }
         Update: {
+          condition_type?: string | null
           created_at?: string | null
           display_order?: number | null
           id?: string
           is_active?: boolean | null
           is_required?: boolean | null
           options?: string[] | null
+          parent_question_id?: string | null
           question_text?: string
           question_type?: string
+          trigger_value?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "form_questions_parent_question_id_fkey"
+            columns: ["parent_question_id"]
+            isOneToOne: false
+            referencedRelation: "form_questions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

@@ -40,6 +40,9 @@ interface FormQuestion {
   display_order: number;
   is_active: boolean;
   created_at: string;
+  parent_question_id: string | null;
+  trigger_value: string | null;
+  condition_type: string | null;
 }
 
 // Sortable Question Component
@@ -48,13 +51,15 @@ const SortableQuestionItem = ({
   index, 
   questionTypeLabels, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onCreateSubQuestion 
 }: {
   question: FormQuestion;
   index: number;
   questionTypeLabels: Record<string, string>;
   onEdit: (question: FormQuestion) => void;
   onDelete: (id: string) => void;
+  onCreateSubQuestion: (parentId: string) => void;
 }) => {
   const {
     attributes,
@@ -70,6 +75,9 @@ const SortableQuestionItem = ({
     transition,
   };
 
+  const isSubQuestion = question.parent_question_id !== null;
+  const canHaveSubQuestions = ['select', 'radio', 'checkbox'].includes(question.question_type) && question.options && question.options.length > 0;
+
   return (
     <div
       ref={setNodeRef}
@@ -78,7 +86,7 @@ const SortableQuestionItem = ({
         isDragging 
           ? 'opacity-60 bg-primary/5 border-primary shadow-lg scale-105' 
           : 'bg-secondary/20 hover:bg-secondary/30'
-      }`}
+      } ${isSubQuestion ? 'ml-8 border-l-4 border-l-primary/40' : ''}`}
     >
       <div 
         className="flex items-center gap-2 text-muted-foreground cursor-grab active:cursor-grabbing hover:text-primary transition-colors"
@@ -92,6 +100,14 @@ const SortableQuestionItem = ({
       <div className="flex-1">
         <div className="flex items-start gap-3">
           <div className="flex-1">
+            {isSubQuestion && (
+              <div className="text-xs text-muted-foreground mb-1">
+                <Badge variant="outline" className="text-xs">Sub-sual</Badge>
+                {question.trigger_value && (
+                  <span className="ml-2">Şərt: "{question.trigger_value}"</span>
+                )}
+              </div>
+            )}
             <p className="font-medium text-foreground mb-1">
               {question.question_text}
             </p>
@@ -130,6 +146,16 @@ const SortableQuestionItem = ({
           </div>
           
           <div className="flex items-center gap-2">
+            {canHaveSubQuestions && !isSubQuestion && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onCreateSubQuestion(question.id)}
+                className="text-primary hover:text-primary"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -165,7 +191,9 @@ const FormManagement = () => {
     question_type: 'text',
     options: '',
     is_required: false,
-    is_active: true
+    is_active: true,
+    parent_question_id: null as string | null,
+    trigger_value: ''
   });
 
   // Modern drag & drop sensors
@@ -226,6 +254,9 @@ const FormManagement = () => {
           : null,
         is_required: formData.is_required,
         is_active: formData.is_active,
+        parent_question_id: formData.parent_question_id,
+        trigger_value: formData.trigger_value || null,
+        condition_type: 'equals',
         display_order: editingQuestion ? editingQuestion.display_order : questions.length + 1
       };
 
@@ -273,7 +304,9 @@ const FormManagement = () => {
       question_type: 'text',
       options: '',
       is_required: false,
-      is_active: true
+      is_active: true,
+      parent_question_id: null,
+      trigger_value: ''
     });
     setEditingQuestion(null);
   };
@@ -285,7 +318,9 @@ const FormManagement = () => {
       question_type: question.question_type,
       options: question.options ? question.options.join('\n') : '',
       is_required: question.is_required,
-      is_active: question.is_active
+      is_active: question.is_active,
+      parent_question_id: question.parent_question_id,
+      trigger_value: question.trigger_value || ''
     });
     setIsDialogOpen(true);
   };
@@ -313,6 +348,20 @@ const FormManagement = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleCreateSubQuestion = (parentId: string) => {
+    setFormData({
+      question_text: '',
+      question_type: 'text',
+      options: '',
+      is_required: false,
+      is_active: true,
+      parent_question_id: parentId,
+      trigger_value: ''
+    });
+    setEditingQuestion(null);
+    setIsDialogOpen(true);
   };
 
   // Modern drag end handler with optimistic updates
@@ -421,6 +470,17 @@ const FormManagement = () => {
               </DialogHeader>
               
               <div className="grid gap-4 py-4">
+                {formData.parent_question_id && (
+                  <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-xs">Sub-sual</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Bu sual yalnız əsas sualın cavabına əsasən göstəriləcək
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-2">
                   <Label htmlFor="question_text">Sual mətn</Label>
                   <Textarea
@@ -463,6 +523,22 @@ const FormManagement = () => {
                       value={formData.options}
                       onChange={(e) => setFormData({...formData, options: e.target.value})}
                     />
+                  </div>
+                )}
+
+                {formData.parent_question_id && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="trigger_value">Şərt dəyəri</Label>
+                    <Input
+                      id="trigger_value"
+                      placeholder="Hansı cavab bu sualı göstərəcək..."
+                      value={formData.trigger_value}
+                      onChange={(e) => setFormData({...formData, trigger_value: e.target.value})}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Əsas sualın bu cavabı seçildikdə sub-sual görünəcək
+                    </p>
                   </div>
                 )}
 
@@ -531,6 +607,7 @@ const FormManagement = () => {
                       questionTypeLabels={questionTypeLabels}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onCreateSubQuestion={handleCreateSubQuestion}
                     />
                   ))}
                 </div>
