@@ -18,6 +18,9 @@ interface FormQuestion {
   options: string[];
   is_required: boolean;
   display_order: number;
+  parent_question_id?: string;
+  trigger_value?: string;
+  condition_type?: string;
 }
 
 interface Customer {
@@ -51,6 +54,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
     status: 'new_inquiry',
     notes: ''
   });
+  const [dynamicAnswers, setDynamicAnswers] = useState<Record<string, string>>({});
   const [formQuestions, setFormQuestions] = useState<FormQuestion[]>([]);
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(false);
@@ -186,6 +190,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         status: 'new_inquiry',
         notes: ''
       });
+      setDynamicAnswers({});
       setExistingCustomer(null);
       onSuccess();
       
@@ -203,7 +208,29 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                      question.question_text.toLowerCase().includes('model') ? 'interested_model' :
                      question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
     
-    if (!fieldName) return null;
+    // Handle conditional questions
+    if (question.parent_question_id) {
+      const parentQuestion = formQuestions.find(q => q.id === question.parent_question_id);
+      if (parentQuestion) {
+        const parentFieldName = parentQuestion.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
+        const parentValue = parentFieldName ? formData[parentFieldName as keyof typeof formData] : dynamicAnswers[question.parent_question_id];
+        
+        // Check if condition is met
+        if (!parentValue || parentValue !== question.trigger_value) {
+          return null; // Don't render if condition not met
+        }
+      }
+    }
+
+    const currentValue = fieldName ? formData[fieldName as keyof typeof formData] : dynamicAnswers[question.id];
+    
+    const handleValueChange = (value: string) => {
+      if (fieldName) {
+        setFormData(prev => ({ ...prev, [fieldName]: value }));
+      } else {
+        setDynamicAnswers(prev => ({ ...prev, [question.id]: value }));
+      }
+    };
 
     return (
       <div key={question.id} className="form-field">
@@ -212,15 +239,15 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
           {question.is_required && <span className="text-destructive ml-1">*</span>}
         </Label>
         <Select
-          value={formData[fieldName as keyof typeof formData]}
-          onValueChange={(value) => setFormData(prev => ({ ...prev, [fieldName]: value }))}
+          value={currentValue || ''}
+          onValueChange={handleValueChange}
         >
-          <SelectTrigger className="transition-smooth focus:shadow-primary">
+          <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
             <SelectValue placeholder={`${question.question_text} seçin`} />
           </SelectTrigger>
-          <SelectContent>
-            {question.options.map((option) => (
-              <SelectItem key={option} value={option}>
+          <SelectContent className="bg-background border shadow-lg">
+            {question.options && question.options.map((option) => (
+              <SelectItem key={option} value={option} className="hover:bg-accent">
                 {option}
               </SelectItem>
             ))}
@@ -324,8 +351,13 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
             </div>
 
             {/* Dynamic Form Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {formQuestions.map(renderFormField)}
+            <div className="space-y-4">
+              {formQuestions
+                .filter(q => !q.parent_question_id) // First render parent questions
+                .map(renderFormField)}
+              {formQuestions
+                .filter(q => q.parent_question_id) // Then render child questions
+                .map(renderFormField)}
             </div>
 
             {/* Status */}
