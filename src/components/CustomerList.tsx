@@ -299,61 +299,76 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
-               <TableHeader>
-                <TableRow>
-                  <TableHead className="font-semibold">Müştəri</TableHead>
-                  <TableHead className="font-semibold">Əlaqə</TableHead>
-                  <TableHead className="font-semibold">Detallar</TableHead>
-                  <TableHead className="font-semibold">Tarix</TableHead>
+              <TableHeader>
+                <TableRow className="border-b bg-muted/20">
+                  <TableHead className="font-semibold py-4 px-6">Müştəri</TableHead>
+                  <TableHead className="font-semibold py-4 px-6">Əlaqə</TableHead>
+                  <TableHead className="font-semibold py-4 px-6">Detallar</TableHead>
+                  <TableHead className="font-semibold py-4 px-6">Tarix</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCustomers.map((customer) => (
-                  <TableRow key={customer.id} className="hover:bg-muted/50 transition-smooth">
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-foreground">{customer.full_name}</div>
+                  <TableRow key={customer.id} className="hover:bg-muted/30 transition-smooth border-b border-border/50">
+                    <TableCell className="py-4 px-6">
+                      <div className="space-y-2">
+                        <div className="font-semibold text-foreground text-base">{customer.full_name}</div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="w-4 h-4" />
+                          <span className="font-medium">{customer.phone}</span>
+                        </div>
                         {customer.notes && (
-                          <div className="text-xs text-muted-foreground truncate max-w-xs">
+                          <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2 max-w-xs">
                             {customer.notes}
                           </div>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {customer.email && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Mail className="w-3 h-3 text-muted-foreground" />
-                          {customer.email}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1 text-sm">
-                        {customer.age_group && (
-                          <div className="flex items-center gap-1">
-                            <User className="w-3 h-3 text-muted-foreground" />
-                            {customer.age_group} • {customer.gender}
+                    <TableCell className="py-4 px-6">
+                      <div className="space-y-2">
+                        {customer.email ? (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="w-4 h-4 text-muted-foreground" />
+                            <span>{customer.email}</span>
                           </div>
-                        )}
-                        {customer.interested_model && (
-                          <div className="flex items-center gap-1">
-                            <Car className="w-3 h-3 text-muted-foreground" />
-                            {customer.interested_model}
-                          </div>
-                        )}
-                        {customer.ad_source && (
-                          <div className="flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                            {customer.ad_source}
+                        ) : (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Mail className="w-4 h-4" />
+                            <span className="italic">Email yoxdur</span>
                           </div>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(customer.created_at).toLocaleDateString('az-AZ')}
+                    <TableCell className="py-4 px-6">
+                      <div className="space-y-2 text-sm">
+                        {customer.age_group && (
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">{customer.age_group}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span>{customer.gender}</span>
+                          </div>
+                        )}
+                        {customer.interested_model && (
+                          <div className="flex items-center gap-2">
+                            <Car className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium">{customer.interested_model}</span>
+                          </div>
+                        )}
+                        {customer.ad_source && (
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                            <span>{customer.ad_source}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">
+                          {new Date(customer.created_at).toLocaleDateString('az-AZ')}
+                        </span>
                       </div>
                     </TableCell>
                   </TableRow>
