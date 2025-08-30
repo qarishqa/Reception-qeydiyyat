@@ -69,6 +69,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   const [editFormData, setEditFormData] = useState<Partial<Customer>>({});
   const [editLoading, setEditLoading] = useState(false);
   const [formQuestions, setFormQuestions] = useState<any[]>([]);
+  const [editDynamicAnswers, setEditDynamicAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCustomers();
@@ -237,6 +238,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       interested_model: customer.interested_model,
       ad_source: customer.ad_source
     });
+    setEditDynamicAnswers({});
     setEditDialogOpen(true);
   };
 
@@ -280,85 +282,167 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     return isAdmin || customer.created_by === user?.id;
   };
 
-  const renderEditFormField = (question: any) => {
+  const renderEditFormField = (question: any): JSX.Element | null => {
     const fieldName = question.question_text.toLowerCase().includes('yaş') ? 'age_group' :
                      question.question_text.toLowerCase().includes('cins') ? 'gender' :
                      question.question_text.toLowerCase().includes('model') ? 'interested_model' :
                      question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
     
-    const currentValue = fieldName ? editFormData[fieldName as keyof typeof editFormData] : '';
+    // Check if this is a phone or email field
+    const isPhoneField = question.question_text.toLowerCase().includes('telefon');
+    const isEmailField = question.question_text.toLowerCase().includes('email');
+    
+    // Handle conditional questions
+    if (question.parent_question_id) {
+      const parentQuestion = formQuestions.find(q => q.id === question.parent_question_id);
+      if (parentQuestion) {
+        const parentFieldName = parentQuestion.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
+        const parentValue = parentFieldName ? editFormData[parentFieldName as keyof typeof editFormData] : editDynamicAnswers[question.parent_question_id];
+        
+        // Check if condition is met
+        if (!parentValue || parentValue !== question.trigger_value) {
+          return null; // Don't render if condition not met
+        }
+      }
+    }
+
+    const currentValue = fieldName ? editFormData[fieldName as keyof typeof editFormData] : editDynamicAnswers[question.id];
     
     const handleValueChange = (value: string) => {
       if (fieldName) {
         setEditFormData(prev => ({ ...prev, [fieldName]: value }));
+      } else {
+        setEditDynamicAnswers(prev => ({ ...prev, [question.id]: value }));
       }
     };
 
     // Render different input types based on question type
-    switch (question.question_type) {
-      case 'select':
-      case 'dropdown':
+    const renderInput = () => {
+      // Force phone and email fields to be text inputs
+      if (isPhoneField) {
         return (
-          <Select
-            value={String(currentValue || '')}
-            onValueChange={handleValueChange}
-          >
-            <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
-              <SelectValue placeholder={`${question.question_text} seçin`} />
-            </SelectTrigger>
-            <SelectContent className="bg-background border shadow-lg z-50">
-              {question.options && question.options.map((option: string) => (
-                <SelectItem key={option} value={option} className="hover:bg-accent">
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              type="tel"
+              value={String(currentValue || '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="pl-10 transition-smooth focus:shadow-primary"
+            />
+          </div>
         );
+      }
       
-      case 'text':
-      case 'input':
+      if (isEmailField) {
         return (
-          <Input
-            type="text"
-            value={String(currentValue || '')}
-            onChange={(e) => handleValueChange(e.target.value)}
-            placeholder={`${question.question_text} daxil edin`}
-            className="transition-smooth focus:shadow-primary"
-          />
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              type="email"
+              value={String(currentValue || '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="pl-10 transition-smooth focus:shadow-primary"
+            />
+          </div>
         );
+      }
       
-      case 'textarea':
-        return (
-          <Textarea
-            value={String(currentValue || '')}
-            onChange={(e) => handleValueChange(e.target.value)}
-            placeholder={`${question.question_text} daxil edin`}
-            rows={3}
-            className="transition-smooth focus:shadow-primary"
-          />
-        );
-      
-      default:
-        // Default to select for backwards compatibility
-        return (
-          <Select
-            value={String(currentValue || '')}
-            onValueChange={handleValueChange}
-          >
-            <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
-              <SelectValue placeholder={`${question.question_text} seçin`} />
-            </SelectTrigger>
-            <SelectContent className="bg-background border shadow-lg z-50">
-              {question.options && question.options.map((option: string) => (
-                <SelectItem key={option} value={option} className="hover:bg-accent">
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        );
+      switch (question.question_type) {
+        case 'select':
+        case 'dropdown':
+          return (
+            <Select
+              value={String(currentValue || '')}
+              onValueChange={handleValueChange}
+            >
+              <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                <SelectValue placeholder={`${question.question_text} seçin`} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg z-50">
+                {question.options && question.options.map((option: string) => (
+                  <SelectItem key={option} value={option} className="hover:bg-accent">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        
+        case 'text':
+        case 'input':
+          return (
+            <Input
+              type="text"
+              value={String(currentValue || '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="transition-smooth focus:shadow-primary"
+            />
+          );
+        
+        case 'textarea':
+          return (
+            <Textarea
+              value={String(currentValue || '')}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              rows={3}
+              className="transition-smooth focus:shadow-primary"
+            />
+          );
+        
+        default:
+          // Default to select for backwards compatibility
+          return (
+            <Select
+              value={String(currentValue || '')}
+              onValueChange={handleValueChange}
+            >
+              <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                <SelectValue placeholder={`${question.question_text} seçin`} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg z-50">
+                {question.options && question.options.map((option: string) => (
+                  <SelectItem key={option} value={option} className="hover:bg-accent">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+      }
+    };
+
+    return (
+      <div key={question.id} className="form-field">
+        <Label className="form-label">
+          {question.question_text}
+          {question.is_required && <span className="text-destructive ml-1">*</span>}
+        </Label>
+        {renderInput()}
+      </div>
+    );
+  };
+
+  const renderEditQuestionWithChildren = (question: any): JSX.Element[] => {
+    const elements: JSX.Element[] = [];
+    
+    // Render the parent question
+    const parentElement = renderEditFormField(question);
+    if (parentElement) {
+      elements.push(parentElement);
     }
+    
+    // Find and render child questions immediately after parent
+    const childQuestions = formQuestions.filter(q => q.parent_question_id === question.id);
+    childQuestions.forEach(childQuestion => {
+      const childElements = renderEditQuestionWithChildren(childQuestion);
+      elements.push(...childElements);
+    });
+    
+    return elements;
   };
 
   if (loading) {
@@ -642,15 +726,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                            !questionText.includes('ad və soyad') &&
                            !questionText.includes('müştərinin adı');
                   })
-                  .map(question => (
-                    <div key={question.id} className="space-y-2">
-                      <Label>
-                        {question.question_text}
-                        {question.is_required && <span className="text-destructive ml-1">*</span>}
-                      </Label>
-                      {renderEditFormField(question)}
-                    </div>
-                  ))}
+                  .map(question => renderEditQuestionWithChildren(question))
+                  .flat()}
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
