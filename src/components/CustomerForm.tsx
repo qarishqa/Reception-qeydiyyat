@@ -202,7 +202,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const renderFormField = (question: FormQuestion) => {
+  const renderFormField = (question: FormQuestion): JSX.Element | null => {
     const fieldName = question.question_text.toLowerCase().includes('yaş') ? 'age_group' :
                      question.question_text.toLowerCase().includes('cins') ? 'gender' :
                      question.question_text.toLowerCase().includes('model') ? 'interested_model' :
@@ -232,29 +232,102 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       }
     };
 
+    // Render different input types based on question type
+    const renderInput = () => {
+      switch (question.question_type) {
+        case 'select':
+        case 'dropdown':
+          return (
+            <Select
+              value={currentValue || ''}
+              onValueChange={handleValueChange}
+            >
+              <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                <SelectValue placeholder={`${question.question_text} seçin`} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg">
+                {question.options && question.options.map((option) => (
+                  <SelectItem key={option} value={option} className="hover:bg-accent">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        
+        case 'text':
+        case 'input':
+          return (
+            <Input
+              type="text"
+              value={currentValue || ''}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              className="transition-smooth focus:shadow-primary"
+            />
+          );
+        
+        case 'textarea':
+          return (
+            <Textarea
+              value={currentValue || ''}
+              onChange={(e) => handleValueChange(e.target.value)}
+              placeholder={`${question.question_text} daxil edin`}
+              rows={3}
+              className="transition-smooth focus:shadow-primary"
+            />
+          );
+        
+        default:
+          // Default to select for backwards compatibility
+          return (
+            <Select
+              value={currentValue || ''}
+              onValueChange={handleValueChange}
+            >
+              <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                <SelectValue placeholder={`${question.question_text} seçin`} />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg">
+                {question.options && question.options.map((option) => (
+                  <SelectItem key={option} value={option} className="hover:bg-accent">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+      }
+    };
+
     return (
       <div key={question.id} className="form-field">
         <Label className="form-label">
           {question.question_text}
           {question.is_required && <span className="text-destructive ml-1">*</span>}
         </Label>
-        <Select
-          value={currentValue || ''}
-          onValueChange={handleValueChange}
-        >
-          <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
-            <SelectValue placeholder={`${question.question_text} seçin`} />
-          </SelectTrigger>
-          <SelectContent className="bg-background border shadow-lg">
-            {question.options && question.options.map((option) => (
-              <SelectItem key={option} value={option} className="hover:bg-accent">
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {renderInput()}
       </div>
     );
+  };
+
+  const renderQuestionWithChildren = (question: FormQuestion): JSX.Element[] => {
+    const elements: JSX.Element[] = [];
+    
+    // Render the parent question
+    const parentElement = renderFormField(question);
+    if (parentElement) {
+      elements.push(parentElement);
+    }
+    
+    // Find and render child questions immediately after parent
+    const childQuestions = formQuestions.filter(q => q.parent_question_id === question.id);
+    childQuestions.forEach(childQuestion => {
+      const childElements = renderQuestionWithChildren(childQuestion);
+      elements.push(...childElements);
+    });
+    
+    return elements;
   };
 
   return (
@@ -353,11 +426,9 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
             {/* Dynamic Form Fields */}
             <div className="space-y-4">
               {formQuestions
-                .filter(q => !q.parent_question_id) // First render parent questions
-                .map(renderFormField)}
-              {formQuestions
-                .filter(q => q.parent_question_id) // Then render child questions
-                .map(renderFormField)}
+                .filter(q => !q.parent_question_id) // Only render top-level questions
+                .map(question => renderQuestionWithChildren(question))
+                .flat()}
             </div>
 
             {/* Status */}
