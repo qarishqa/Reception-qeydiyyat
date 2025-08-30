@@ -46,21 +46,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
+          // Fetch user profile immediately
+          const fetchProfile = async () => {
             try {
-              const { data: profileData } = await supabase
+              const { data: profileData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('user_id', session.user.id)
                 .single();
               
-              setProfile(profileData);
+              if (error) {
+                console.error('Profile fetch error:', error);
+              } else {
+                console.log('Profile loaded:', profileData);
+                setProfile(profileData);
+              }
             } catch (error) {
               console.error('Error fetching profile:', error);
+            } finally {
+              setLoading(false);
             }
-            setLoading(false);
-          }, 0);
+          };
+          
+          fetchProfile();
         } else {
           setProfile(null);
           setLoading(false);
@@ -68,13 +76,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session and profile
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (!session) {
-        setLoading(false);
+      
+      if (session?.user) {
+        try {
+          const { data: profileData, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+          
+          if (error) {
+            console.error('Initial profile fetch error:', error);
+          } else {
+            setProfile(profileData);
+          }
+        } catch (error) {
+          console.error('Error fetching initial profile:', error);
+        }
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
