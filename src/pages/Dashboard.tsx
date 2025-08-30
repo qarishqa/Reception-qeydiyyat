@@ -29,7 +29,6 @@ interface DashboardStats {
   totalCustomers: number;
   todayCustomers: number;
   monthlyCustomers: number;
-  conversionRate: number;
 }
 
 const Dashboard = () => {
@@ -39,8 +38,7 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
     todayCustomers: 0,
-    monthlyCustomers: 0,
-    conversionRate: 0
+    monthlyCustomers: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -70,19 +68,10 @@ const Dashboard = () => {
         .select('*', { count: 'exact', head: true })
         .gte('created_at', firstDayOfMonth);
 
-      // Conversion rate (sold customers)
-      const { count: soldCustomers } = await supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'sold');
-
-      const conversionRate = totalCustomers ? ((soldCustomers || 0) / totalCustomers * 100) : 0;
-
       setStats({
         totalCustomers: totalCustomers || 0,
         todayCustomers: todayCustomers || 0,
-        monthlyCustomers: monthlyCustomers || 0,
-        conversionRate: Math.round(conversionRate * 10) / 10
+        monthlyCustomers: monthlyCustomers || 0
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -249,7 +238,7 @@ const Dashboard = () => {
             </div>
             
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="card-elevated">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -289,18 +278,6 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card className="card-elevated">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Satış Faizi
-                  </CardTitle>
-                  <Car className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.conversionRate}%</div>
-                  <p className="text-xs text-muted-foreground">Müvəffəqiyyət nisbəti</p>
-                </CardContent>
-              </Card>
             </div>
           </div>
         )}
