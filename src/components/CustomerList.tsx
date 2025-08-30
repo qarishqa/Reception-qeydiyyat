@@ -72,7 +72,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         .from('customers')
         .select(`
           *,
-          profiles:created_by(full_name)
+          profiles!customers_created_by_fkey(full_name)
         `)
         .order('created_at', { ascending: false });
       
