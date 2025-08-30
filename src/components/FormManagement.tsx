@@ -11,6 +11,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, GripVertical, HelpCircle } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface FormQuestion {
   id: string;
@@ -23,12 +42,121 @@ interface FormQuestion {
   created_at: string;
 }
 
+// Sortable Question Component
+const SortableQuestionItem = ({ 
+  question, 
+  index, 
+  questionTypeLabels, 
+  onEdit, 
+  onDelete 
+}: {
+  question: FormQuestion;
+  index: number;
+  questionTypeLabels: Record<string, string>;
+  onEdit: (question: FormQuestion) => void;
+  onDelete: (id: string) => void;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: question.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-4 p-4 border rounded-lg transition-all duration-200 ${
+        isDragging 
+          ? 'opacity-60 bg-primary/5 border-primary shadow-lg scale-105' 
+          : 'bg-secondary/20 hover:bg-secondary/30'
+      }`}
+    >
+      <div 
+        className="flex items-center gap-2 text-muted-foreground cursor-grab active:cursor-grabbing hover:text-primary transition-colors"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="w-5 h-5" />
+        <span className="text-sm font-medium">#{index + 1}</span>
+      </div>
+      
+      <div className="flex-1">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <p className="font-medium text-foreground mb-1">
+              {question.question_text}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline" className="text-xs">
+                {questionTypeLabels[question.question_type]}
+              </Badge>
+              {question.is_required && (
+                <Badge variant="destructive" className="text-xs">
+                  Məcburi
+                </Badge>
+              )}
+              {!question.is_active && (
+                <Badge variant="secondary" className="text-xs">
+                  Deaktiv
+                </Badge>
+              )}
+            </div>
+            {question.options && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1">Variantlar:</p>
+                <div className="flex flex-wrap gap-1">
+                  {question.options.slice(0, 3).map((option, i) => (
+                    <Badge key={i} variant="outline" className="text-xs">
+                      {option}
+                    </Badge>
+                  ))}
+                  {question.options.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{question.options.length - 3}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(question)}
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(question.id)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const FormManagement = () => {
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<FormQuestion | null>(null);
-  const [draggedItem, setDraggedItem] = useState<FormQuestion | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -39,6 +167,18 @@ const FormManagement = () => {
     is_required: false,
     is_active: true
   });
+
+  // Modern drag & drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchQuestions();
@@ -175,70 +315,50 @@ const FormManagement = () => {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, question: FormQuestion) => {
-    setDraggedItem(question);
-    e.dataTransfer.effectAllowed = 'move';
-  };
+  // Modern drag end handler with optimistic updates
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+    if (active.id !== over?.id) {
+      const oldIndex = questions.findIndex((item) => item.id === active.id);
+      const newIndex = questions.findIndex((item) => item.id === over?.id);
 
-  const handleDrop = async (e: React.DragEvent, targetQuestion: FormQuestion) => {
-    e.preventDefault();
-    
-    if (!draggedItem || draggedItem.id === targetQuestion.id) {
-      setDraggedItem(null);
-      return;
-    }
+      // Optimistic update - change UI immediately
+      const newQuestions = arrayMove(questions, oldIndex, newIndex);
+      setQuestions(newQuestions);
 
-    try {
-      // Reorder questions
-      const updatedQuestions = [...questions];
-      const draggedIndex = updatedQuestions.findIndex(q => q.id === draggedItem.id);
-      const targetIndex = updatedQuestions.findIndex(q => q.id === targetQuestion.id);
+      try {
+        // Update display_order for all affected questions
+        const updates = newQuestions.map((question, index) => ({
+          id: question.id,
+          display_order: index + 1
+        }));
 
-      // Remove dragged item and insert at new position
-      updatedQuestions.splice(draggedIndex, 1);
-      updatedQuestions.splice(targetIndex, 0, draggedItem);
+        // Batch update in database
+        for (const update of updates) {
+          const { error } = await supabase
+            .from('form_questions')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id);
 
-      // Update display_order for all affected questions
-      const updates = updatedQuestions.map((question, index) => ({
-        id: question.id,
-        display_order: index + 1
-      }));
+          if (error) throw error;
+        }
 
-      // Update in database
-      for (const update of updates) {
-        const { error } = await supabase
-          .from('form_questions')
-          .update({ display_order: update.display_order })
-          .eq('id', update.id);
-
-        if (error) throw error;
+        toast({
+          title: "Uğur!",
+          description: "Sual sırası dəyişdirildi"
+        });
+      } catch (error) {
+        console.error('Error reordering questions:', error);
+        // Revert on error
+        fetchQuestions();
+        toast({
+          title: "Xəta",
+          description: "Sual sırası dəyişdirilərkən xəta baş verdi",
+          variant: "destructive"
+        });
       }
-
-      toast({
-        title: "Uğur!",
-        description: "Sual sırası dəyişdirildi"
-      });
-
-      fetchQuestions();
-    } catch (error) {
-      console.error('Error reordering questions:', error);
-      toast({
-        title: "Xəta",
-        description: "Sual sırası dəyişdirilərkən xəta baş verdi",
-        variant: "destructive"
-      });
-    } finally {
-      setDraggedItem(null);
     }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItem(null);
   };
 
   const questionTypeLabels: Record<string, string> = {
@@ -393,88 +513,29 @@ const FormManagement = () => {
               <p>Müştəri formu üçün ilk sualı əlavə edin</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {questions.map((question, index) => (
-                <div 
-                  key={question.id} 
-                  className={`flex items-center gap-4 p-4 border rounded-lg transition-all duration-200 ${
-                    draggedItem?.id === question.id 
-                      ? 'opacity-50 bg-primary/5 border-primary' 
-                      : 'bg-secondary/20 hover:bg-secondary/30'
-                  }`}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, question)}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, question)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <div className="flex items-center gap-2 text-muted-foreground cursor-grab active:cursor-grabbing">
-                    <GripVertical className="w-5 h-5" />
-                    <span className="text-sm font-medium">#{index + 1}</span>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground mb-1">
-                          {question.question_text}
-                        </p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline" className="text-xs">
-                            {questionTypeLabels[question.question_type]}
-                          </Badge>
-                          {question.is_required && (
-                            <Badge variant="destructive" className="text-xs">
-                              Məcburi
-                            </Badge>
-                          )}
-                          {!question.is_active && (
-                            <Badge variant="secondary" className="text-xs">
-                              Deaktiv
-                            </Badge>
-                          )}
-                        </div>
-                        {question.options && (
-                          <div className="mt-2">
-                            <p className="text-xs text-muted-foreground mb-1">Variantlar:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {question.options.slice(0, 3).map((option, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {option}
-                                </Badge>
-                              ))}
-                              {question.options.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{question.options.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(question)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(question.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={questions.map(q => q.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {questions.map((question, index) => (
+                    <SortableQuestionItem
+                      key={question.id}
+                      question={question}
+                      index={index}
+                      questionTypeLabels={questionTypeLabels}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </CardContent>
       </Card>
