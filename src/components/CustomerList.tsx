@@ -162,8 +162,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       'Cins',
       'Model',
       'Reklam Mənbəyi',
-      'Status',
-      'Qeydlər',
       'Əlavə Etdi',
       'Tarix'
     ];
@@ -178,8 +176,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         `"${customer.gender || ''}"`,
         `"${customer.interested_model || ''}"`,
         `"${customer.ad_source || ''}"`,
-        `"${customer.status}"`,
-        `"${customer.notes || ''}"`,
         `"${customer.profiles?.full_name || ''}"`,
         new Date(customer.created_at).toLocaleDateString('az-AZ')
       ].join(','))
