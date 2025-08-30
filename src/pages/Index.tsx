@@ -34,7 +34,7 @@ const Index = () => {
           </div>
           
           <h1 className="text-5xl font-bold text-foreground mb-6">
-            CarLoft <span className="text-primary">Insight</span>
+            Performance <span className="text-primary">Center</span>
           </h1>
           
           <p className="text-xl text-muted-foreground mb-12 leading-relaxed">

@@ -60,7 +60,7 @@ const Auth = () => {
           <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-primary">
             <Car className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">CarLoft Insight</h1>
+          <h1 className="text-3xl font-bold text-foreground">Performance Center</h1>
           <p className="text-muted-foreground mt-2">Müştəri Məlumat Analiz Sistemi</p>
         </div>
 
@@ -179,7 +179,7 @@ const Auth = () => {
         </Card>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          <p>© 2024 CarLoft Insight - Avtosalon CRM Sistemi</p>
+          <p>© 2024 Performance Center - Avtosalon CRM Sistemi</p>
         </div>
       </div>
     </div>
