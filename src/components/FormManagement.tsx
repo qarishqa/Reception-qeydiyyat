@@ -28,6 +28,7 @@ const FormManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<FormQuestion | null>(null);
+  const [draggedItem, setDraggedItem] = useState<FormQuestion | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -172,6 +173,72 @@ const FormManagement = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleDragStart = (e: React.DragEvent, question: FormQuestion) => {
+    setDraggedItem(question);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetQuestion: FormQuestion) => {
+    e.preventDefault();
+    
+    if (!draggedItem || draggedItem.id === targetQuestion.id) {
+      setDraggedItem(null);
+      return;
+    }
+
+    try {
+      // Reorder questions
+      const updatedQuestions = [...questions];
+      const draggedIndex = updatedQuestions.findIndex(q => q.id === draggedItem.id);
+      const targetIndex = updatedQuestions.findIndex(q => q.id === targetQuestion.id);
+
+      // Remove dragged item and insert at new position
+      updatedQuestions.splice(draggedIndex, 1);
+      updatedQuestions.splice(targetIndex, 0, draggedItem);
+
+      // Update display_order for all affected questions
+      const updates = updatedQuestions.map((question, index) => ({
+        id: question.id,
+        display_order: index + 1
+      }));
+
+      // Update in database
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('form_questions')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Uğur!",
+        description: "Sual sırası dəyişdirildi"
+      });
+
+      fetchQuestions();
+    } catch (error) {
+      console.error('Error reordering questions:', error);
+      toast({
+        title: "Xəta",
+        description: "Sual sırası dəyişdirilərkən xəta baş verdi",
+        variant: "destructive"
+      });
+    } finally {
+      setDraggedItem(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
   };
 
   const questionTypeLabels: Record<string, string> = {
@@ -328,9 +395,21 @@ const FormManagement = () => {
           ) : (
             <div className="space-y-4">
               {questions.map((question, index) => (
-                <div key={question.id} className="flex items-center gap-4 p-4 border rounded-lg bg-secondary/20">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <GripVertical className="w-4 h-4" />
+                <div 
+                  key={question.id} 
+                  className={`flex items-center gap-4 p-4 border rounded-lg transition-all duration-200 ${
+                    draggedItem?.id === question.id 
+                      ? 'opacity-50 bg-primary/5 border-primary' 
+                      : 'bg-secondary/20 hover:bg-secondary/30'
+                  }`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, question)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, question)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="flex items-center gap-2 text-muted-foreground cursor-grab active:cursor-grabbing">
+                    <GripVertical className="w-5 h-5" />
                     <span className="text-sm font-medium">#{index + 1}</span>
                   </div>
                   
