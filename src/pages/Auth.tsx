@@ -6,18 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Car, LogIn, UserPlus } from 'lucide-react';
+import { Car, LogIn } from 'lucide-react';
 
 const Auth = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('signin');
   
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,24 +28,11 @@ const Auth = () => {
     setError('');
     setLoading(true);
 
+    // Convert username to email format
+    const email = `${username}@performance-center.az`;
     const { error } = await signIn(email, password);
     if (error) {
-      setError(error.message);
-    }
-    setLoading(false);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    const { error } = await signUp(email, password, fullName);
-    if (error) {
-      setError(error.message);
-    } else {
-      setError('');
-      alert('Qeydiyyat uğurla tamamlandı! Email-inizi yoxlayın.');
+      setError('İstifadəçi adı və ya şifrə yanlışdır');
     }
     setLoading(false);
   };
@@ -72,109 +56,46 @@ const Auth = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin" className="flex items-center gap-2">
-                  <LogIn className="w-4 h-4" />
-                  Giriş
-                </TabsTrigger>
-                <TabsTrigger value="signup" className="flex items-center gap-2">
-                  <UserPlus className="w-4 h-4" />
-                  Qeydiyyat
-                </TabsTrigger>
-              </TabsList>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="form-field">
-                    <Label htmlFor="email" className="form-label">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      required
-                      className="transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                  <div className="form-field">
-                    <Label htmlFor="password" className="form-label">Şifrə</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      className="transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gradient-primary text-primary-foreground font-medium py-3 transition-smooth hover:shadow-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Giriş edilir...' : 'Sistemə Giriş'}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="form-field">
-                    <Label htmlFor="fullName" className="form-label">Ad və Soyad</Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Ad və Soyad"
-                      required
-                      className="transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                  <div className="form-field">
-                    <Label htmlFor="signupEmail" className="form-label">Email</Label>
-                    <Input
-                      id="signupEmail"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      required
-                      className="transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                  <div className="form-field">
-                    <Label htmlFor="signupPassword" className="form-label">Şifrə</Label>
-                    <Input
-                      id="signupPassword"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                      className="transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gradient-primary text-primary-foreground font-medium py-3 transition-smooth hover:shadow-primary"
-                    disabled={loading}
-                  >
-                    {loading ? 'Qeydiyyat edilir...' : 'Qeydiyyatdan Keç'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="form-field">
+                <Label htmlFor="username" className="form-label">İstifadəçi adı</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="istifadeci_adi"
+                  required
+                  className="transition-smooth focus:shadow-primary"
+                />
+              </div>
+              <div className="form-field">
+                <Label htmlFor="password" className="form-label">Şifrə</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="transition-smooth focus:shadow-primary"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full gradient-primary text-primary-foreground font-medium py-3 transition-smooth hover:shadow-primary"
+                disabled={loading}
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                {loading ? 'Giriş edilir...' : 'Sistemə Giriş'}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
