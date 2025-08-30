@@ -294,14 +294,14 @@ const FormManagement = () => {
     try {
       const { error } = await supabase
         .from('form_questions')
-        .update({ is_active: false })
+        .delete()
         .eq('id', questionId);
 
       if (error) throw error;
 
       toast({
         title: "Uğur!",
-        description: "Sual deaktiv edildi"
+        description: "Sual silindi"
       });
       
       fetchQuestions();
