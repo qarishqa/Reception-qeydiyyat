@@ -466,38 +466,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                 .flat()}
             </div>
 
-            {/* Status */}
-            <div className="form-field">
-              <Label className="form-label">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger className="transition-smooth focus:shadow-primary">
-                  <SelectValue placeholder="Status seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new_inquiry">Yeni Sorğu</SelectItem>
-                  <SelectItem value="test_drive_scheduled">Test Sürüşü Planlandı</SelectItem>
-                  <SelectItem value="negotiating">Danışıqlar</SelectItem>
-                  <SelectItem value="sold">Satıldı</SelectItem>
-                  <SelectItem value="lost">İtkin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Notes */}
-            <div className="form-field">
-              <Label htmlFor="notes" className="form-label">Qeydlər</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Əlavə qeydlər və müşahidələr..."
-                rows={3}
-                className="transition-smooth focus:shadow-primary"
-              />
-            </div>
 
             <Button
               type="submit"
