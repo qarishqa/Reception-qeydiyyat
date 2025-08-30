@@ -52,14 +52,16 @@ const SortableQuestionItem = ({
   questionTypeLabels, 
   onEdit, 
   onDelete,
-  onCreateSubQuestion 
+  onCreateSubQuestion,
+  allQuestions 
 }: {
   question: FormQuestion;
   index: number;
   questionTypeLabels: Record<string, string>;
   onEdit: (question: FormQuestion) => void;
   onDelete: (id: string) => void;
-  onCreateSubQuestion: (parentId: string) => void;
+  onCreateSubQuestion: (parentId: string, triggerValue?: string) => void;
+  allQuestions: FormQuestion[];
 }) => {
   const {
     attributes,
@@ -130,11 +132,28 @@ const SortableQuestionItem = ({
               <div className="mt-2">
                 <p className="text-xs text-muted-foreground mb-1">Variantlar:</p>
                 <div className="flex flex-wrap gap-1">
-                  {question.options.slice(0, 3).map((option, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {option}
-                    </Badge>
-                  ))}
+                  {question.options.slice(0, 3).map((option, i) => {
+                     const hasSubQuestion = allQuestions.some(q => 
+                       q.parent_question_id === question.id && q.trigger_value === option
+                     );
+                    return (
+                      <div key={i} className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          {option}
+                        </Badge>
+                        {!isSubQuestion && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-5 w-5 p-0 ${hasSubQuestion ? 'text-green-500' : 'text-muted-foreground hover:text-primary'}`}
+                            onClick={() => onCreateSubQuestion(question.id, option)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
                   {question.options.length > 3 && (
                     <Badge variant="outline" className="text-xs">
                       +{question.options.length - 3}
@@ -350,7 +369,7 @@ const FormManagement = () => {
     }
   };
 
-  const handleCreateSubQuestion = (parentId: string) => {
+  const handleCreateSubQuestion = (parentId: string, triggerValue?: string) => {
     setFormData({
       question_text: '',
       question_type: 'text',
@@ -358,7 +377,7 @@ const FormManagement = () => {
       is_required: false,
       is_active: true,
       parent_question_id: parentId,
-      trigger_value: ''
+      trigger_value: triggerValue || ''
     });
     setEditingQuestion(null);
     setIsDialogOpen(true);
@@ -599,17 +618,18 @@ const FormManagement = () => {
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-4">
-                  {questions.map((question, index) => (
-                    <SortableQuestionItem
-                      key={question.id}
-                      question={question}
-                      index={index}
-                      questionTypeLabels={questionTypeLabels}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onCreateSubQuestion={handleCreateSubQuestion}
-                    />
-                  ))}
+                   {questions.map((question, index) => (
+                     <SortableQuestionItem
+                       key={question.id}
+                       question={question}
+                       index={index}
+                       questionTypeLabels={questionTypeLabels}
+                       onEdit={handleEdit}
+                       onDelete={handleDelete}
+                       onCreateSubQuestion={handleCreateSubQuestion}
+                       allQuestions={questions}
+                     />
+                   ))}
                 </div>
               </SortableContext>
             </DndContext>
