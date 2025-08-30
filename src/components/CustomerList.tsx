@@ -218,9 +218,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       age_group: customer.age_group,
       gender: customer.gender,
       interested_model: customer.interested_model,
-      ad_source: customer.ad_source,
-      status: customer.status,
-      notes: customer.notes
+      ad_source: customer.ad_source
     });
     setEditDialogOpen(true);
   };
@@ -237,9 +235,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         age_group: editFormData.age_group,
         gender: editFormData.gender,
         interested_model: editFormData.interested_model,
-        ad_source: editFormData.ad_source,
-        status: editFormData.status as 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost',
-        notes: editFormData.notes
+        ad_source: editFormData.ad_source
       };
 
       const { error } = await supabase
@@ -562,55 +558,53 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="edit-model">Maraqlandığı Model</Label>
-                  <Input
-                    id="edit-model"
+                  <Select
                     value={editFormData.interested_model || ''}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, interested_model: e.target.value }))}
-                    placeholder="Avtomobil modeli"
-                  />
+                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, interested_model: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Model seçin" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg z-50">
+                      <SelectItem value="Baic X7">Baic X7</SelectItem>
+                      <SelectItem value="Baic X55">Baic X55</SelectItem>
+                      <SelectItem value="Baic X35">Baic X35</SelectItem>
+                      <SelectItem value="Baic BJ40">Baic BJ40</SelectItem>
+                      <SelectItem value="Baic EU5">Baic EU5</SelectItem>
+                      <SelectItem value="Baic EC3">Baic EC3</SelectItem>
+                      <SelectItem value="Baic U5 PLUS">Baic U5 PLUS</SelectItem>
+                      <SelectItem value="Digər">Digər</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-source">Reklam Mənbəyi</Label>
-                  <Input
-                    id="edit-source"
-                    value={editFormData.ad_source || ''}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, ad_source: e.target.value }))}
-                    placeholder="Reklamı harada görmüşdür"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-status">Status</Label>
                   <Select
-                    value={editFormData.status || ''}
-                    onValueChange={(value: 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost') => setEditFormData(prev => ({ ...prev, status: value }))}
+                    value={editFormData.ad_source || ''}
+                    onValueChange={(value) => setEditFormData(prev => ({ ...prev, ad_source: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Status seçin" />
+                      <SelectValue placeholder="Mənbə seçin" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new_inquiry">Yeni Sorğu</SelectItem>
-                      <SelectItem value="test_drive_scheduled">Test Sürüşü</SelectItem>
-                      <SelectItem value="negotiating">Danışıqlar</SelectItem>
-                      <SelectItem value="sold">Satıldı</SelectItem>
-                      <SelectItem value="lost">İtkin</SelectItem>
+                    <SelectContent className="bg-background border shadow-lg z-50">
+                      <SelectItem value="Instagram">Instagram</SelectItem>
+                      <SelectItem value="Facebook">Facebook</SelectItem>
+                      <SelectItem value="Tiktok">Tiktok</SelectItem>
+                      <SelectItem value="Youtube">Youtube</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="Sosial şəbəkə">Sosial şəbəkə</SelectItem>
+                      <SelectItem value="Dost tövsiyəsi">Dost tövsiyəsi</SelectItem>
+                      <SelectItem value="Televiziya">Televiziya</SelectItem>
+                      <SelectItem value="Radio">Radio</SelectItem>
+                      <SelectItem value="Qəzet">Qəzet</SelectItem>
+                      <SelectItem value="Küçə reklamı">Küçə reklamı</SelectItem>
+                      <SelectItem value="Digər">Digər</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-notes">Qeydlər</Label>
-                <Textarea
-                  id="edit-notes"
-                  value={editFormData.notes || ''}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Əlavə qeydlər"
-                  rows={3}
-                />
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
