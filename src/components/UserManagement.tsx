@@ -112,40 +112,29 @@ const UserManagement = () => {
           description: "İstifadəçi məlumatları yeniləndi"
         });
       } else {
-        // Create new user with username as email
-        const emailFromUsername = `${formData.username}@performance-center.az`;
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: emailFromUsername,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.full_name,
-              username: formData.username
-            }
+        // Create new user using edge function with admin privileges
+        const { data, error } = await supabase.functions.invoke('create-user', {
+          body: {
+            username: formData.username,
+            password: formData.password,
+            full_name: formData.full_name,
+            role: formData.role
           }
         });
 
-        if (authError) throw authError;
-
-        if (authData.user) {
-          // Update the profile with the selected role and username
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ 
-              role: formData.role,
-              username: formData.username
-            })
-            .eq('user_id', authData.user.id);
-
-          if (updateError) {
-            console.error('Error updating user data:', updateError);
-          }
-
-          toast({
-            title: "Uğur!",
-            description: "Yeni istifadəçi yaradıldı"
-          });
+        if (error) {
+          console.error('Edge function error:', error);
+          throw new Error('İstifadəçi yaradılarkən xəta baş verdi');
         }
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        toast({
+          title: "Uğur!",
+          description: "Yeni istifadəçi yaradıldı və təsdiqləndi"
+        });
       }
 
       resetForm();
