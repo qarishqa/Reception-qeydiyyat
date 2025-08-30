@@ -127,6 +127,15 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     setFilteredCustomers(filtered);
   };
 
+  const handleTagClick = (filterType: 'model' | 'source' | 'age_group', value: string) => {
+    if (filterType === 'model') {
+      setModelFilter(value);
+    } else if (filterType === 'source') {
+      setSourceFilter(value);
+    }
+    toast.success(`${value} üzrə filterləndi`);
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'new_inquiry': { label: 'Yeni Sorğu', variant: 'default' as const },
@@ -302,7 +311,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
               <TableHeader>
                 <TableRow className="border-b bg-muted/20">
                   <TableHead className="font-semibold py-4 px-6">Müştəri</TableHead>
-                  <TableHead className="font-semibold py-4 px-6">Əlaqə</TableHead>
                   <TableHead className="font-semibold py-4 px-6">Detallar</TableHead>
                   <TableHead className="font-semibold py-4 px-6">Tarix</TableHead>
                 </TableRow>
@@ -317,6 +325,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                           <Phone className="w-4 h-4" />
                           <span className="font-medium">{customer.phone}</span>
                         </div>
+                        {customer.email && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Mail className="w-4 h-4" />
+                            <span>{customer.email}</span>
+                          </div>
+                        )}
                         {customer.notes && (
                           <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2 max-w-xs">
                             {customer.notes}
@@ -325,41 +339,35 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                       </div>
                     </TableCell>
                     <TableCell className="py-4 px-6">
-                      <div className="space-y-2">
-                        {customer.email ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="w-4 h-4 text-muted-foreground" />
-                            <span>{customer.email}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Mail className="w-4 h-4" />
-                            <span className="italic">Email yoxdur</span>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-4 px-6">
-                      <div className="space-y-2 text-sm">
+                      <div className="flex flex-wrap gap-2">
                         {customer.age_group && (
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{customer.age_group}</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span>{customer.gender}</span>
-                          </div>
+                          <Badge 
+                            variant="secondary" 
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                          >
+                            <User className="w-3 h-3 mr-1" />
+                            {customer.age_group} • {customer.gender}
+                          </Badge>
                         )}
                         {customer.interested_model && (
-                          <div className="flex items-center gap-2">
-                            <Car className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">{customer.interested_model}</span>
-                          </div>
+                          <Badge 
+                            variant="outline" 
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                            onClick={() => handleTagClick('model', customer.interested_model)}
+                          >
+                            <Car className="w-3 h-3 mr-1" />
+                            {customer.interested_model}
+                          </Badge>
                         )}
                         {customer.ad_source && (
-                          <div className="flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                            <span>{customer.ad_source}</span>
-                          </div>
+                          <Badge 
+                            variant="default" 
+                            className="cursor-pointer hover:bg-primary/80 transition-colors"
+                            onClick={() => handleTagClick('source', customer.ad_source)}
+                          >
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                            {customer.ad_source}
+                          </Badge>
                         )}
                       </div>
                     </TableCell>
