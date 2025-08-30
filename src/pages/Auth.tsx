@@ -32,7 +32,13 @@ const Auth = () => {
     const email = `${username}@performance-center.az`;
     const { error } = await signIn(email, password);
     if (error) {
-      setError('İstifadəçi adı və ya şifrə yanlışdır');
+      if (error.message?.includes('email_not_confirmed')) {
+        setError('E-poçt təsdiqlənməyib. Administratorla əlaqə saxlayın.');
+      } else if (error.message?.includes('Invalid login credentials')) {
+        setError('İstifadəçi adı və ya şifrə yanlışdır');
+      } else {
+        setError('Giriş xətası baş verdi. Yenidən cəhd edin.');
+      }
     }
     setLoading(false);
   };
