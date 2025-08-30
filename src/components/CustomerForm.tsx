@@ -149,8 +149,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       if (!user) throw new Error('İstifadəçi tapılmadı');
       
       // Validate required fields
-      if (!formData.phone || !formData.full_name) {
-        throw new Error('Telefon və ad sahələri mütləqdir');
+      if (!formData.full_name) {
+        throw new Error('Ad sahəsi mütləqdir');
       }
 
       const customerData = {
@@ -404,7 +404,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
             {/* Phone Number - Special field with search */}
             <div className="form-field">
               <Label htmlFor="phone" className="form-label">
-                Telefon Nömrəsi <span className="text-destructive">*</span>
+                Telefon Nömrəsi
               </Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -415,7 +415,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                   onChange={(e) => handlePhoneChange(e.target.value)}
                   placeholder="994501234567"
                   className="pl-10 transition-smooth focus:shadow-primary"
-                  required
                 />
                 {searching && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -477,7 +476,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
 
             <Button
               type="submit"
-              disabled={loading || !formData.phone || !formData.full_name}
+              disabled={loading || !formData.full_name}
               className="w-full gradient-primary text-primary-foreground font-medium py-3 transition-smooth hover:shadow-primary"
             >
               <Save className="w-4 h-4 mr-2" />
