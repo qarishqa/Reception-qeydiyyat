@@ -14,7 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          ad_source: string | null
+          age_group: string | null
+          created_at: string | null
+          created_by: string
+          email: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          interested_model: string | null
+          notes: string | null
+          phone: string
+          status: Database["public"]["Enums"]["customer_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_source?: string | null
+          age_group?: string | null
+          created_at?: string | null
+          created_by: string
+          email?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          interested_model?: string | null
+          notes?: string | null
+          phone: string
+          status?: Database["public"]["Enums"]["customer_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_source?: string | null
+          age_group?: string | null
+          created_at?: string | null
+          created_by?: string
+          email?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          interested_model?: string | null
+          notes?: string | null
+          phone?: string
+          status?: Database["public"]["Enums"]["customer_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      form_questions: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          options: string[] | null
+          question_text: string
+          question_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: string[] | null
+          question_text: string
+          question_type: string
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          options?: string[] | null
+          question_text?: string
+          question_type?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          full_name: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +130,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      customer_status:
+        | "new_inquiry"
+        | "test_drive_scheduled"
+        | "negotiating"
+        | "sold"
+        | "lost"
+      user_role: "admin" | "reception"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +263,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      customer_status: [
+        "new_inquiry",
+        "test_drive_scheduled",
+        "negotiating",
+        "sold",
+        "lost",
+      ],
+      user_role: ["admin", "reception"],
+    },
   },
 } as const
