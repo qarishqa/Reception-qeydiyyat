@@ -46,19 +46,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile immediately
+          // Fetch user profile immediately with better error handling
           const fetchProfile = async () => {
             try {
+              console.log('Fetching profile for user:', session.user.id);
               const { data: profileData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('user_id', session.user.id)
                 .single();
               
+              console.log('Profile query result:', { profileData, error });
+              
               if (error) {
                 console.error('Profile fetch error:', error);
+                // If no profile found, try to fetch without .single()
+                if (error.code === 'PGRST116') {
+                  const { data: profilesData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+                  
+                  console.log('Alternative profile query:', profilesData);
+                  if (profilesData && profilesData.length > 0) {
+                    setProfile(profilesData[0]);
+                  }
+                }
               } else {
-                console.log('Profile loaded:', profileData);
+                console.log('Setting profile:', profileData);
                 setProfile(profileData);
               }
             } catch (error) {
