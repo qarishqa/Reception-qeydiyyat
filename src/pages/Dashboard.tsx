@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import CustomerForm from '@/components/CustomerForm';
 import CustomerList from '@/components/CustomerList';
 import Analytics from '@/components/Analytics';
+import FormManagement from '@/components/FormManagement';
 
 interface DashboardStats {
   totalCustomers: number;
@@ -306,26 +307,7 @@ const Dashboard = () => {
         {activeTab === 'customers' && <CustomerList onStatsUpdate={fetchStats} />}
         {activeTab === 'add-customer' && <CustomerForm onSuccess={fetchStats} />}
         {activeTab === 'analytics' && isAdmin && <Analytics />}
-        {activeTab === 'form-management' && isAdmin && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Form İdarəçiliyi</h2>
-              <p className="text-muted-foreground">Müştəri formu suallarını idarə edin</p>
-            </div>
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle>Form Sualları</CardTitle>
-                <CardDescription>Müştəri formu üçün sualları əlavə edin və ya redaktə edin</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <HelpCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Form sualları idarəetmə komponenti hazırlanır...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {activeTab === 'form-management' && isAdmin && <FormManagement />}
         {activeTab === 'user-management' && isAdmin && (
           <div className="space-y-8">
             <div>
