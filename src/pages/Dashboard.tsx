@@ -122,7 +122,7 @@ const Dashboard = () => {
                 <Car className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-foreground">CarLoft Insight</h1>
+                <h1 className="text-xl font-semibold text-foreground">Performance Center</h1>
                 <p className="text-sm text-muted-foreground">Müştəri Analiz Sistemi</p>
               </div>
             </div>
