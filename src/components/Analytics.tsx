@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 interface AnalyticsData {
   modelStats: Array<{ name: string; value: number }>;
   sourceStats: Array<{ name: string; value: number }>;
-  statusStats: Array<{ name: string; value: number }>;
   monthlyStats: Array<{ month: string; customers: number; sold: number }>;
   ageGroupStats: Array<{ name: string; value: number }>;
   genderStats: Array<{ name: string; value: number }>;
@@ -22,7 +21,6 @@ const Analytics = () => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     modelStats: [],
     sourceStats: [],
-    statusStats: [],
     monthlyStats: [],
     ageGroupStats: [],
     genderStats: []
@@ -101,23 +99,6 @@ const Analytics = () => {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
-      // Process status statistics
-      const statusCounts = customers.reduce((acc, customer) => {
-        const statusNames = {
-          'new_inquiry': 'Yeni Sorğu',
-          'test_drive_scheduled': 'Test Sürüşü',
-          'negotiating': 'Danışıqlar',
-          'sold': 'Satıldı',
-          'lost': 'İtkin'
-        };
-        const statusName = statusNames[customer.status as keyof typeof statusNames] || customer.status;
-        acc[statusName] = (acc[statusName] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const statusStats = Object.entries(statusCounts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
 
       // Process age group statistics
       const ageCounts = customers.reduce((acc, customer) => {
@@ -174,7 +155,6 @@ const Analytics = () => {
       setAnalyticsData({
         modelStats,
         sourceStats,
-        statusStats,
         monthlyStats,
         ageGroupStats,
         genderStats
@@ -446,50 +426,8 @@ const Analytics = () => {
         </motion.div>
       </div>
 
-      {/* Status and Demographics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-primary" />
-              Müştəri Statusları
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={analyticsData.statusStats}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-                >
-                  {analyticsData.statusStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {analyticsData.statusStats.map((stat, index) => (
-                <div key={stat.name} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded" 
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <span>{stat.name}</span>
-                  </div>
-                  <span className="font-medium">{stat.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Demographics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <Card className="card-elevated">
           <CardHeader>
