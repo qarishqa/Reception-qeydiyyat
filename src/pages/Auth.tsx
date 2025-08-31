@@ -31,7 +31,9 @@ const Auth = () => {
     // Convert username to email format
     const email = username === 'Qarishqa' 
       ? 'fuad@performance-center.az' 
-      : `${username}@performance-center.az`;
+      : username === 'Zardabi'
+      ? 'zardabi@performance-center.az'
+      : `${username.toLowerCase()}@performance-center.az`;
     const { error } = await signIn(email, password);
     if (error) {
       if (error.message?.includes('email_not_confirmed')) {
