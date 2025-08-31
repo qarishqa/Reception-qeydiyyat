@@ -1,0 +1,14 @@
+-- Update Supabase config for Vercel deployment
+-- This ensures authentication works properly on production
+
+-- Note: The actual Site URL and Redirect URLs must be configured in Supabase Dashboard
+-- Go to: https://supabase.com/dashboard/project/wabjyjcbekuwoslxxjgq/auth/providers
+-- 
+-- Set Site URL to: https://carloft-insight.vercel.app
+-- 
+-- Add these Redirect URLs:
+-- https://carloft-insight.vercel.app/**
+-- http://localhost:3000/** (for local development)
+-- https://carloft-insight.vercel.app/auth/**
+-- 
+-- This migration is just a placeholder to remind about the manual configuration needed
