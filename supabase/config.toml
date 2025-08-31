@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.fix-admin-user]
 verify_jwt = false
+
+[functions.update-user-password]
+verify_jwt = false

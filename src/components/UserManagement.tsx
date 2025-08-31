@@ -210,12 +210,16 @@ const UserManagement = () => {
     setSubmitting(true);
 
     try {
-      // Update user password via Supabase Admin API
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
+      // Update user password via Admin Edge Function
+      const { data, error } = await supabase.functions.invoke('update-user-password', {
+        body: {
+          user_id: changingPasswordUser?.user_id,
+          new_password: passwordData.newPassword
+        }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'Edge function xətası');
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Uğur!",
@@ -224,6 +228,7 @@ const UserManagement = () => {
 
       setIsPasswordDialogOpen(false);
       setPasswordData({ newPassword: '', confirmPassword: '' });
+      setChangingPasswordUser(null);
     } catch (error: any) {
       console.error('Error changing password:', error);
       toast({
