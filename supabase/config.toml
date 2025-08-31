@@ -79,3 +79,6 @@ backend = "postgres"
 
 [functions.create-user]
 verify_jwt = false
+
+[functions.fix-admin-user]
+verify_jwt = false

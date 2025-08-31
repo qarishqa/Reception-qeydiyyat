@@ -1,18 +1,38 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Car, Users, BarChart3, LogIn } from 'lucide-react';
+import { Car, Users, BarChart3, LogIn, Settings } from 'lucide-react';
 
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [fixingAdmin, setFixingAdmin] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
+
+  const fixAdminUser = async () => {
+    setFixingAdmin(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fix-admin-user');
+      if (error) {
+        console.error('Error fixing admin user:', error);
+        alert('Xəta baş verdi: ' + error.message);
+      } else {
+        console.log('Admin user fixed:', data);
+        alert('Admin istifadəçi düzəldildi! Username: Qarishqa, Password: 2689007pc');
+      }
+    } catch (error) {
+      console.error('Error calling function:', error);
+      alert('Funksiyana çağırış xətası');
+    }
+    setFixingAdmin(false);
+  };
 
   if (loading) {
     return (
@@ -68,13 +88,27 @@ const Index = () => {
             </div>
           </div>
 
-          <Button 
-            onClick={() => navigate('/auth')}
-            className="gradient-primary text-primary-foreground px-8 py-4 text-lg font-medium transition-smooth hover:shadow-primary"
-          >
-            <LogIn className="w-5 h-5 mr-2" />
-            Sistemə Giriş
-          </Button>
+          <div className="space-y-4">
+            <Button 
+              onClick={() => navigate('/auth')}
+              className="gradient-primary text-primary-foreground px-8 py-4 text-lg font-medium transition-smooth hover:shadow-primary"
+            >
+              <LogIn className="w-5 h-5 mr-2" />
+              Sistemə Giriş
+            </Button>
+            
+            <div className="pt-4">
+              <Button 
+                onClick={fixAdminUser}
+                disabled={fixingAdmin}
+                variant="outline"
+                className="px-6 py-2"
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                {fixingAdmin ? 'Admin təmir edilir...' : 'Admin İstifadəçini Təmir Et'}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
