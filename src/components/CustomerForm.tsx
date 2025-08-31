@@ -315,21 +315,59 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
           );
         
         case 'checkbox':
-          return (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id={`checkbox-${question.id}`}
-                checked={currentValue === 'true'}
-                onCheckedChange={(checked) => handleValueChange(checked ? 'true' : 'false')}
-              />
-              <Label
-                htmlFor={`checkbox-${question.id}`}
-                className="text-sm font-normal cursor-pointer"
-              >
-                {question.question_text}
-              </Label>
-            </div>
-          );
+          // Handle multiple checkboxes when options are provided
+          if (question.options && question.options.length > 0) {
+            const selectedValues = currentValue ? currentValue.split(',').map(v => v.trim()) : [];
+            
+            const handleCheckboxChange = (option: string, checked: boolean) => {
+              let newValues = [...selectedValues];
+              if (checked) {
+                if (!newValues.includes(option)) {
+                  newValues.push(option);
+                }
+              } else {
+                newValues = newValues.filter(v => v !== option);
+              }
+              handleValueChange(newValues.join(', '));
+            };
+
+            return (
+              <div className="space-y-2">
+                {question.options.map((option) => (
+                  <div key={option} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`checkbox-${question.id}-${option}`}
+                      checked={selectedValues.includes(option)}
+                      onCheckedChange={(checked) => handleCheckboxChange(option, checked as boolean)}
+                    />
+                    <Label
+                      htmlFor={`checkbox-${question.id}-${option}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {option}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            );
+          } else {
+            // Single checkbox without options
+            return (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`checkbox-${question.id}`}
+                  checked={currentValue === 'true'}
+                  onCheckedChange={(checked) => handleValueChange(checked ? 'true' : 'false')}
+                />
+                <Label
+                  htmlFor={`checkbox-${question.id}`}
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {question.question_text}
+                </Label>
+              </div>
+            );
+          }
         
         default:
           // Default to select for backwards compatibility
