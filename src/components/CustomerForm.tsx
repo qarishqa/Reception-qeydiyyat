@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
@@ -311,6 +312,23 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
               rows={3}
               className="transition-smooth focus:shadow-primary"
             />
+          );
+        
+        case 'checkbox':
+          return (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`checkbox-${question.id}`}
+                checked={currentValue === 'true'}
+                onCheckedChange={(checked) => handleValueChange(checked ? 'true' : 'false')}
+              />
+              <Label
+                htmlFor={`checkbox-${question.id}`}
+                className="text-sm font-normal cursor-pointer"
+              >
+                {question.question_text}
+              </Label>
+            </div>
           );
         
         default:
