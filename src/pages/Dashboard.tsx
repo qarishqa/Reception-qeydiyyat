@@ -97,6 +97,8 @@ const Dashboard = () => {
       navigate('/auth');
     } catch (error) {
       console.error('Çıxış zamanı xəta:', error);
+      // Even if there's an error, try to navigate away
+      navigate('/auth');
     }
   };
 
