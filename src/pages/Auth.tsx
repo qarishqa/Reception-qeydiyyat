@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ const Auth = () => {
 
     // Convert username to email format
     const email = username === 'Qarishqa' 
-      ? 'fuad@performance-center.az' 
+      ? 'Qarishqa@performance-center.az' 
       : username === 'Zardabi'
       ? 'zardabi@performance-center.az'
       : `${username.toLowerCase()}@performance-center.az`;
@@ -106,6 +106,15 @@ const Auth = () => {
                 {loading ? 'Giriş edilir...' : 'Sistemə Giriş'}
               </Button>
             </form>
+            
+            <div className="mt-4 text-center">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                Şifrəni unutmusan?
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
