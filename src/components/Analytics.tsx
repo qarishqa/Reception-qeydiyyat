@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Users, Car, Target, Calendar, Filter, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import SalonStatistics from './SalonStatistics';
+import SalesManagerStatistics from './SalesManagerStatistics';
 
 interface AnalyticsData {
   modelStats: Array<{ name: string; value: number }>;
@@ -391,11 +393,30 @@ const Analytics = () => {
         </motion.div>
       )}
 
+      {/* Salon and Sales Manager Statistics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <SalonStatistics selectedMonth={selectedMonth} />
+        </motion.div>
+        
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <SalesManagerStatistics selectedMonth={selectedMonth} />
+        </motion.div>
+      </div>
+
       {/* User Statistics */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.6 }}
       >
         <Card className="card-elevated">
           <CardHeader>

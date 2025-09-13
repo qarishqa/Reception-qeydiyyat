@@ -33,6 +33,8 @@ interface Customer {
   gender: string;
   interested_model: string;
   ad_source: string;
+  salon: string;
+  sales_manager: string;
   status: string;
   notes: string;
   created_at: string;
@@ -52,6 +54,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
     gender: '',
     interested_model: '',
     ad_source: '',
+    salon: '',
+    sales_manager: '',
     status: 'new_inquiry',
     notes: ''
   });
@@ -104,6 +108,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
           gender: data.gender || '',
           interested_model: data.interested_model || '',
           ad_source: data.ad_source || '',
+          salon: (data as any).salon || '',
+          sales_manager: (data as any).sales_manager || '',
           status: data.status,
           notes: data.notes || ''
         });
@@ -510,6 +516,45 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                     className="pl-10 transition-smooth focus:shadow-primary"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Salon and Sales Manager */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-field">
+                <Label htmlFor="salon" className="form-label">Salon</Label>
+                <Select
+                  value={formData.salon}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, salon: value }))}
+                >
+                  <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                    <SelectValue placeholder="Salon seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="Baku Center" className="hover:bg-accent">Baku Center</SelectItem>
+                    <SelectItem value="Ganja" className="hover:bg-accent">Ganja</SelectItem>
+                    <SelectItem value="Sumgayit" className="hover:bg-accent">Sumgayit</SelectItem>
+                    <SelectItem value="Mingachevir" className="hover:bg-accent">Mingachevir</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="form-field">
+                <Label htmlFor="sales_manager" className="form-label">Satış Meneceri</Label>
+                <Select
+                  value={formData.sales_manager}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, sales_manager: value }))}
+                >
+                  <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
+                    <SelectValue placeholder="Menecer seçin" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="Anar Mammadov" className="hover:bg-accent">Anar Mammadov</SelectItem>
+                    <SelectItem value="Leyla Hasanova" className="hover:bg-accent">Leyla Hasanova</SelectItem>
+                    <SelectItem value="Rashad Aliyev" className="hover:bg-accent">Rashad Aliyev</SelectItem>
+                    <SelectItem value="Nigar Ismayilova" className="hover:bg-accent">Nigar Ismayilova</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
