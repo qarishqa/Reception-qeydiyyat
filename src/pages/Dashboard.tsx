@@ -128,7 +128,7 @@ const Dashboard = () => {
       <header className="bg-card border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 cursor-pointer" onClick={() => window.location.reload()}>
               <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
                 <Car className="w-6 h-6 text-primary-foreground" />
               </div>

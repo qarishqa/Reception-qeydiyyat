@@ -300,7 +300,9 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
           body: { customer_id: customer.id }
         });
         
-        if (!error && data) {
+        console.log('Edge function response:', { data, error });
+        
+        if (!error && data && data.success) {
           toast.success('Müştəri uğurla silindi!');
           fetchCustomers();
           onStatsUpdate();
