@@ -29,10 +29,19 @@ const Analytics = () => {
   const [timeRange, setTimeRange] = useState('all');
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
   const [drillDownData, setDrillDownData] = useState<any[]>([]);
+  const [userStats, setUserStats] = useState<any[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedUser, setSelectedUser] = useState('all');
+  const [filteredUserStats, setFilteredUserStats] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAnalyticsData();
+    fetchUserStats();
   }, [timeRange]);
+
+  useEffect(() => {
+    filterUserStats();
+  }, [userStats, selectedMonth, selectedUser]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -164,6 +173,83 @@ const Analytics = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUserStats = async () => {
+     try {
+       const { data: customers, error } = await supabase
+         .from('customers')
+         .select('created_by, created_at');
+       
+       if (error) throw error;
+       
+       // Get unique user IDs
+       const userIds = [...new Set(customers?.map(c => c.created_by) || [])];
+       
+       // Fetch user profiles
+       const { data: profiles, error: profilesError } = await supabase
+         .from('profiles')
+         .select('id, full_name')
+         .in('id', userIds);
+       
+       if (profilesError) throw profilesError;
+       
+       const userCounts = customers?.reduce((acc, customer) => {
+         const userId = customer.created_by;
+         const profile = profiles?.find(p => p.id === userId);
+         const fullName = profile?.full_name || 'Bilinməyən';
+         
+         if (!acc[userId]) {
+           acc[userId] = {
+             user_id: userId,
+             full_name: fullName,
+             customer_count: 0,
+             monthly_counts: {}
+           };
+         }
+         
+         acc[userId].customer_count++;
+         
+         const monthKey = new Date(customer.created_at).toISOString().slice(0, 7);
+         acc[userId].monthly_counts[monthKey] = (acc[userId].monthly_counts[monthKey] || 0) + 1;
+         
+         return acc;
+       }, {} as Record<string, any>) || {};
+       
+       setUserStats(Object.values(userCounts));
+     } catch (error) {
+       console.error('Error fetching user stats:', error);
+     }
+   };
+
+  const filterUserStats = () => {
+    let filtered = [...userStats];
+    
+    if (selectedUser !== 'all') {
+      filtered = filtered.filter(user => user.user_id === selectedUser);
+    }
+    
+    if (selectedMonth !== 'all') {
+      filtered = filtered.map(user => ({
+        ...user,
+        customer_count: user.monthly_counts[selectedMonth] || 0
+      })).filter(user => user.customer_count > 0);
+    }
+    
+    filtered.sort((a, b) => b.customer_count - a.customer_count);
+    setFilteredUserStats(filtered);
+  };
+
+  const getMonthName = (monthKey: string) => {
+    const months = {
+      '2025-01': 'Yanvar 2025',
+      '2024-12': 'Dekabr 2024',
+      '2024-11': 'Noyabr 2024',
+      '2024-10': 'Oktyabr 2024',
+      '2024-09': 'Sentyabr 2024',
+      '2024-08': 'Avqust 2024'
+    };
+    return months[monthKey as keyof typeof months] || monthKey;
   };
 
   const handleChartClick = async (data: any, chartType: string) => {
@@ -305,7 +391,7 @@ const Analytics = () => {
         </motion.div>
       )}
 
-      {/* Monthly Trend */}
+      {/* User Statistics */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -314,28 +400,81 @@ const Analytics = () => {
         <Card className="card-elevated">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" />
-              Aylıq Trend
+              <Users className="w-5 h-5 text-primary" />
+              İstifadəçi Statistikası
             </CardTitle>
-            <CardDescription>Son 6 ayda müştəri və satış trendi</CardDescription>
+            <CardDescription>Hansı istifadəçinin neçə müştəri əlavə etdiyi</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analyticsData.monthlyStats}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip 
-                  contentStyle={{
-                    background: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Line type="monotone" dataKey="customers" stroke="#1e40af" strokeWidth={2} name="Müştərilər" />
-                <Line type="monotone" dataKey="sold" stroke="#16a34a" strokeWidth={2} name="Satışlar" />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ay seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün aylar</SelectItem>
+                    <SelectItem value="2025-01">Yanvar 2025</SelectItem>
+                    <SelectItem value="2024-12">Dekabr 2024</SelectItem>
+                    <SelectItem value="2024-11">Noyabr 2024</SelectItem>
+                    <SelectItem value="2024-10">Oktyabr 2024</SelectItem>
+                    <SelectItem value="2024-09">Sentyabr 2024</SelectItem>
+                    <SelectItem value="2024-08">Avqust 2024</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="İstifadəçi seçin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün istifadəçilər</SelectItem>
+                    {userStats.map(user => (
+                      <SelectItem key={user.user_id} value={user.user_id}>
+                        {user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-3">
+                {filteredUserStats.map((user, index) => (
+                  <motion.div
+                    key={user.user_id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">
+                          {user.full_name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{user.full_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedMonth === 'all' ? 'Ümumi' : getMonthName(selectedMonth)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{user.customer_count}</p>
+                      <p className="text-sm text-muted-foreground">müştəri</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              
+              {filteredUserStats.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Seçilmiş kriterlərə uyğun məlumat tapılmadı</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </motion.div>
