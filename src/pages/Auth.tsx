@@ -55,7 +55,7 @@ const Auth = () => {
             <Car className="w-8 h-8 text-primary-foreground" />
           </div>
           <h1 className="text-3xl font-bold text-foreground">Performance Center</h1>
-          <p className="text-muted-foreground mt-2">Müştəri Məlumat Analiz Sistemi</p>
+          <p className="text-muted-foreground mt-2">Müştəri Qeydiyyat Sistemi</p>
         </div>
 
         <Card className="card-elevated">

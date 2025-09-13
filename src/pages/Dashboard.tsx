@@ -134,7 +134,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-xl font-semibold text-foreground">Performance Center</h1>
-                <p className="text-sm text-muted-foreground">Müştəri Analiz Sistemi</p>
+                <p className="text-sm text-muted-foreground">Müştəri Qeydiyyat Sistemi</p>
               </div>
             </div>
             
