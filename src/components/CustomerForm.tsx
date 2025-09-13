@@ -99,19 +99,20 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       if (error) throw error;
       
       if (data) {
-        setExistingCustomer(data);
+        const customerData = data as unknown as Customer;
+        setExistingCustomer(customerData);
         setFormData({
-          phone: data.phone,
-          full_name: data.full_name,
-          email: data.email || '',
-          age_group: data.age_group || '',
-          gender: data.gender || '',
-          interested_model: data.interested_model || '',
-          ad_source: data.ad_source || '',
-          salon: (data as any).salon || '',
-          sales_manager: (data as any).sales_manager || '',
-          status: data.status,
-          notes: data.notes || ''
+          phone: customerData.phone,
+          full_name: customerData.full_name,
+          email: customerData.email || '',
+          age_group: customerData.age_group || '',
+          gender: customerData.gender || '',
+          interested_model: customerData.interested_model || '',
+          ad_source: customerData.ad_source || '',
+          salon: customerData.salon || '',
+          sales_manager: customerData.sales_manager || '',
+          status: customerData.status,
+          notes: customerData.notes || ''
         });
         toast.info('Mövcud müştəri tapıldı! Məlumatlar yeniləndi.');
       } else {
@@ -217,7 +218,9 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
     const fieldName = question.question_text.toLowerCase().includes('yaş') ? 'age_group' :
                      question.question_text.toLowerCase().includes('cins') ? 'gender' :
                      question.question_text.toLowerCase().includes('model') ? 'interested_model' :
-                     question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
+                     question.question_text.toLowerCase().includes('reklam') ? 'ad_source' :
+                     question.question_text.toLowerCase().includes('salon') ? 'salon' :
+                     question.question_text.toLowerCase().includes('satış') ? 'sales_manager' : '';
     
     // Check if this is a phone or email field
     const isPhoneField = question.question_text.toLowerCase().includes('telefon');
@@ -523,48 +526,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
               </div>
             </div>
 
-            {/* Salon and Sales Manager */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="form-field">
-                <Label htmlFor="salon" className="form-label">Salon</Label>
-                <Select
-                  value={formData.salon}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, salon: value }))}
-                >
-                  <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
-                    <SelectValue placeholder="Salon seçin" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-lg">
-                    <SelectItem value="Bakı Mərkəz" className="hover:bg-accent">Bakı Mərkəz</SelectItem>
-                    <SelectItem value="Bakı Yasamal" className="hover:bg-accent">Bakı Yasamal</SelectItem>
-                    <SelectItem value="Bakı Nəsimi" className="hover:bg-accent">Bakı Nəsimi</SelectItem>
-                    <SelectItem value="Gəncə" className="hover:bg-accent">Gəncə</SelectItem>
-                    <SelectItem value="Sumqayıt" className="hover:bg-accent">Sumqayıt</SelectItem>
-                    <SelectItem value="Mingəçevir" className="hover:bg-accent">Mingəçevir</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
-              <div className="form-field">
-                <Label htmlFor="sales_manager" className="form-label">Satış Meneceri</Label>
-                <Select
-                  value={formData.sales_manager}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, sales_manager: value }))}
-                >
-                  <SelectTrigger className="transition-smooth focus:shadow-primary bg-background">
-                    <SelectValue placeholder="Menecer seçin" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border shadow-lg">
-                    <SelectItem value="Əli Məmmədov" className="hover:bg-accent">Əli Məmmədov</SelectItem>
-                    <SelectItem value="Leyla Həsənova" className="hover:bg-accent">Leyla Həsənova</SelectItem>
-                    <SelectItem value="Rəşad Quliyev" className="hover:bg-accent">Rəşad Quliyev</SelectItem>
-                    <SelectItem value="Nigar Əliyeva" className="hover:bg-accent">Nigar Əliyeva</SelectItem>
-                    <SelectItem value="Tural Bayramov" className="hover:bg-accent">Tural Bayramov</SelectItem>
-                    <SelectItem value="Səbinə Nəbiyeva" className="hover:bg-accent">Səbinə Nəbiyeva</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
             {/* Dynamic Form Fields */}
             <div className="space-y-4">
