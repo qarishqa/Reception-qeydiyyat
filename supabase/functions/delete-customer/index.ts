@@ -35,6 +35,25 @@ serve(async (req) => {
       );
     }
 
+    // First check if customer exists
+    const { data: customer, error: fetchError } = await supabaseAdmin
+      .from("customers")
+      .select("id")
+      .eq("id", customer_id)
+      .single();
+
+    if (fetchError || !customer) {
+      console.error("Customer not found:", fetchError);
+      return new Response(
+        JSON.stringify({ error: "Müştəri tapılmadı" }),
+        { 
+          status: 404, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
+    }
+
+    // Delete the customer using service role (bypasses RLS)
     const { error: deleteError } = await supabaseAdmin
       .from("customers")
       .delete()

@@ -287,40 +287,52 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     if (!confirmDelete) return;
     
     try {
+      // Check if user can delete this customer
+      const canDelete = isAdmin || customer.created_by === user.id;
+      
+      if (!canDelete) {
+        throw new Error('Müştəri silmək üçün icazəniz yoxdur');
+      }
+
       // Try edge function first
       try {
         const { data, error } = await supabase.functions.invoke('delete-customer', {
           body: { customer_id: customer.id }
         });
         
-        if (!error) {
+        if (!error && data) {
           toast.success('Müştəri uğurla silindi!');
           fetchCustomers();
           onStatsUpdate();
           return;
         }
+        
+        // If edge function returns error, log it and try direct delete
+        if (error) {
+          console.warn('Edge function error:', error);
+        }
       } catch (edgeFunctionError) {
-        console.warn('Edge function failed, trying direct delete:', edgeFunctionError);
+        console.warn('Edge function failed:', edgeFunctionError);
       }
       
-      // Fallback: Direct delete (only for admin users)
-      if (isAdmin) {
-        const { error } = await supabase
-          .from('customers')
-          .delete()
-          .eq('id', customer.id);
-        
-        if (error) throw error;
-        
-        toast.success('Müştəri uğurla silindi!');
-        fetchCustomers();
-        onStatsUpdate();
-      } else {
-        throw new Error('Müştəri silmək üçün icazəniz yoxdur');
+      // Fallback: Direct delete
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', customer.id);
+      
+      if (error) {
+        console.error('Direct delete error:', error);
+        throw error;
       }
+      
+      toast.success('Müştəri uğurla silindi!');
+      fetchCustomers();
+      onStatsUpdate();
+      
     } catch (error: any) {
       console.error('Error deleting customer:', error);
-      toast.error('Xəta: ' + error.message);
+      toast.error('Xəta: ' + (error.message || 'Müştəri silinərkən xəta baş verdi'));
     }
   };
 
