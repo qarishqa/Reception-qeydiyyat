@@ -294,30 +294,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         throw new Error('Müştəri silmək üçün icazəniz yoxdur');
       }
 
-      // Try edge function first
-      try {
-        const { data, error } = await supabase.functions.invoke('delete-customer', {
-          body: { customer_id: customer.id }
-        });
-        
-        console.log('Edge function response:', { data, error });
-        
-        if (!error && data && data.success) {
-          toast.success('Müştəri uğurla silindi!');
-          fetchCustomers();
-          onStatsUpdate();
-          return;
-        }
-        
-        // If edge function returns error, log it and try direct delete
-        if (error) {
-          console.warn('Edge function error:', error);
-        }
-      } catch (edgeFunctionError) {
-        console.warn('Edge function failed:', edgeFunctionError);
-      }
-      
-      // Fallback: Direct delete
+      // Direct delete
       const { error } = await supabase
         .from('customers')
         .delete()
