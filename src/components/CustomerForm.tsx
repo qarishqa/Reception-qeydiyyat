@@ -125,6 +125,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
           gender: '',
           interested_model: '',
           ad_source: '',
+          salon: '',
+          sales_manager: '',
           status: 'new_inquiry',
           notes: ''
         }));
@@ -194,6 +196,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         gender: '',
         interested_model: '',
         ad_source: '',
+        salon: '',
+        sales_manager: '',
         status: 'new_inquiry',
         notes: ''
       });
@@ -531,10 +535,12 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                     <SelectValue placeholder="Salon seçin" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg">
-                    <SelectItem value="Baku Center" className="hover:bg-accent">Baku Center</SelectItem>
-                    <SelectItem value="Ganja" className="hover:bg-accent">Ganja</SelectItem>
-                    <SelectItem value="Sumgayit" className="hover:bg-accent">Sumgayit</SelectItem>
-                    <SelectItem value="Mingachevir" className="hover:bg-accent">Mingachevir</SelectItem>
+                    <SelectItem value="Bakı Mərkəz" className="hover:bg-accent">Bakı Mərkəz</SelectItem>
+                    <SelectItem value="Bakı Yasamal" className="hover:bg-accent">Bakı Yasamal</SelectItem>
+                    <SelectItem value="Bakı Nəsimi" className="hover:bg-accent">Bakı Nəsimi</SelectItem>
+                    <SelectItem value="Gəncə" className="hover:bg-accent">Gəncə</SelectItem>
+                    <SelectItem value="Sumqayıt" className="hover:bg-accent">Sumqayıt</SelectItem>
+                    <SelectItem value="Mingəçevir" className="hover:bg-accent">Mingəçevir</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -549,10 +555,12 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                     <SelectValue placeholder="Menecer seçin" />
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg">
-                    <SelectItem value="Anar Mammadov" className="hover:bg-accent">Anar Mammadov</SelectItem>
-                    <SelectItem value="Leyla Hasanova" className="hover:bg-accent">Leyla Hasanova</SelectItem>
-                    <SelectItem value="Rashad Aliyev" className="hover:bg-accent">Rashad Aliyev</SelectItem>
-                    <SelectItem value="Nigar Ismayilova" className="hover:bg-accent">Nigar Ismayilova</SelectItem>
+                    <SelectItem value="Əli Məmmədov" className="hover:bg-accent">Əli Məmmədov</SelectItem>
+                    <SelectItem value="Leyla Həsənova" className="hover:bg-accent">Leyla Həsənova</SelectItem>
+                    <SelectItem value="Rəşad Quliyev" className="hover:bg-accent">Rəşad Quliyev</SelectItem>
+                    <SelectItem value="Nigar Əliyeva" className="hover:bg-accent">Nigar Əliyeva</SelectItem>
+                    <SelectItem value="Tural Bayramov" className="hover:bg-accent">Tural Bayramov</SelectItem>
+                    <SelectItem value="Səbinə Nəbiyeva" className="hover:bg-accent">Səbinə Nəbiyeva</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

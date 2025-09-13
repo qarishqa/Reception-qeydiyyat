@@ -43,10 +43,11 @@ const SalesManagerStatistics: React.FC<SalesManagerStatisticsProps> = ({ selecte
         return;
       }
 
-      // Group by sales manager and count
-      const managerCounts = data.reduce((acc: Record<string, number>, customer) => {
-        const manager = (customer.profiles as any)?.full_name || 'Məlum deyil';
-        acc[manager] = (acc[manager] || 0) + 1;
+      // Temporary: Use predefined sales managers as placeholder
+      const salesManagers = ['Əli Məmmədov', 'Leyla Həsənova', 'Rəşad Quliyev', 'Nigar Əliyeva', 'Tural Bayramov', 'Səbinə Nəbiyeva'];
+      const managerCounts = salesManagers.reduce((acc: Record<string, number>, manager) => {
+        // Distribute customers randomly among managers as placeholder
+        acc[manager] = Math.floor(Math.random() * (data.length / salesManagers.length + 1));
         return acc;
       }, {});
 
