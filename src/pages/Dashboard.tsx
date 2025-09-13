@@ -28,6 +28,7 @@ import UserManagement from '@/components/UserManagement';
 import InteractiveKPICard from '@/components/InteractiveKPICard';
 import DashboardNotifications from '@/components/DashboardNotifications';
 import QuickActions from '@/components/QuickActions';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardStats {
   totalCustomers: number;
@@ -38,6 +39,7 @@ interface DashboardStats {
 const Dashboard = () => {
   const { profile, signOut, isAdmin, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
@@ -45,6 +47,7 @@ const Dashboard = () => {
     monthlyCustomers: 0
   });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [fixingAdmin, setFixingAdmin] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -102,6 +105,35 @@ const Dashboard = () => {
     }
   };
 
+  const handleFixAdminUser = async () => {
+    setFixingAdmin(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fix-admin-user');
+      
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        toast({
+          title: "Uğur!",
+          description: "Admin istifadəçi uğurla təmir edildi",
+        });
+      } else {
+        throw new Error(data.error || 'Naməlum xəta');
+      }
+    } catch (error: any) {
+      console.error('Admin təmir xətası:', error);
+      toast({
+        title: "Xəta",
+        description: error.message || "Admin istifadəçi təmir edilərkən xəta baş verdi",
+        variant: "destructive"
+      });
+    } finally {
+      setFixingAdmin(false);
+    }
+  };
+
   // Show loading while checking authentication or fetching stats
   if (authLoading || statsLoading) {
     return (
@@ -137,6 +169,18 @@ const Dashboard = () => {
             
             <div className="flex items-center space-x-4">
               <DashboardNotifications />
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleFixAdminUser}
+                  disabled={fixingAdmin}
+                  className="text-sm"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  {fixingAdmin ? 'Təmir edilir...' : 'Admin İstifadəçini Təmir Et'}
+                </Button>
+              )}
               <div className="text-right">
                 <p className="text-sm font-medium text-foreground">{profile?.full_name}</p>
                 <div className="flex items-center gap-2">
