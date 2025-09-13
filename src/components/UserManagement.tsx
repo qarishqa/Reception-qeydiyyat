@@ -192,22 +192,32 @@ const UserManagement = () => {
     }
 
     try {
-      // First delete the user profile
+      // Try to delete the auth user using edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('delete-user', {
+          body: { userId: user.user_id }
+        });
+        
+        console.log('Delete user edge function response:', { data, error });
+        
+        if (error) {
+          console.warn('Auth user deletion failed:', error);
+          // Continue with profile deletion anyway
+        }
+      } catch (edgeFunctionError) {
+        console.warn('Edge function failed:', edgeFunctionError);
+        // Continue with profile deletion anyway
+      }
+
+      // Delete the user profile
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
-
-      // Then delete the auth user using edge function
-      const { error: authError } = await supabase.functions.invoke('delete-user', {
-        body: { userId: user.user_id }
-      });
-
-      if (authError) {
-        console.warn('Auth user deletion failed:', authError);
-        // Continue anyway as profile is already deleted
+      if (profileError) {
+        console.error('Profile deletion error:', profileError);
+        throw profileError;
       }
 
       toast({
