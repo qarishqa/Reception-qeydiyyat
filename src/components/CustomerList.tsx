@@ -29,7 +29,8 @@ import {
   TrendingUp,
   Edit,
   Save,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -274,6 +275,53 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
   const canEditCustomer = (customer: Customer) => {
     return isAdmin || customer.created_by === user?.id;
+  };
+
+  const handleDeleteCustomer = async (customer: Customer) => {
+    if (!user) return;
+    
+    const confirmDelete = window.confirm(
+      `"${customer.full_name}" adlı müştərini silmək istədiyinizə əminsiniz? Bu əməliyyat geri alına bilməz.`
+    );
+    
+    if (!confirmDelete) return;
+    
+    try {
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('delete-customer', {
+          body: { customer_id: customer.id }
+        });
+        
+        if (!error) {
+          toast.success('Müştəri uğurla silindi!');
+          fetchCustomers();
+          onStatsUpdate();
+          return;
+        }
+      } catch (edgeFunctionError) {
+        console.warn('Edge function failed, trying direct delete:', edgeFunctionError);
+      }
+      
+      // Fallback: Direct delete (only for admin users)
+      if (isAdmin) {
+        const { error } = await supabase
+          .from('customers')
+          .delete()
+          .eq('id', customer.id);
+        
+        if (error) throw error;
+        
+        toast.success('Müştəri uğurla silindi!');
+        fetchCustomers();
+        onStatsUpdate();
+      } else {
+        throw new Error('Müştəri silmək üçün icazəniz yoxdur');
+      }
+    } catch (error: any) {
+      console.error('Error deleting customer:', error);
+      toast.error('Xəta: ' + error.message);
+    }
   };
 
   const renderEditFormField = (question: any): JSX.Element | null => {
@@ -603,16 +651,28 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                       </div>
                     </TableCell>
                     <TableCell className="py-4 px-6">
-                      {canEditCustomer(customer) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditCustomer(customer)}
-                          className="h-8 w-8 p-0 hover:bg-primary/10"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex gap-2">
+                        {canEditCustomer(customer) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditCustomer(customer)}
+                            className="h-8 w-8 p-0 hover:bg-primary/10"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {canEditCustomer(customer) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteCustomer(customer)}
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

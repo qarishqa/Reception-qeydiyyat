@@ -8,8 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Users, Car, Target, Calendar, Filter, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import SalonStatistics from './SalonStatistics';
-import SalesManagerStatistics from './SalesManagerStatistics';
+
 
 interface AnalyticsData {
   modelStats: Array<{ name: string; value: number }>;
@@ -17,6 +16,8 @@ interface AnalyticsData {
   monthlyStats: Array<{ month: string; customers: number; sold: number }>;
   ageGroupStats: Array<{ name: string; value: number }>;
   genderStats: Array<{ name: string; value: number }>;
+  salonStats: Array<{ name: string; value: number }>;
+  salesManagerStats: Array<{ name: string; value: number }>;
 }
 
 const Analytics = () => {
@@ -25,25 +26,19 @@ const Analytics = () => {
     sourceStats: [],
     monthlyStats: [],
     ageGroupStats: [],
-    genderStats: []
+    genderStats: [],
+    salonStats: [],
+    salesManagerStats: []
   });
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('all');
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
   const [drillDownData, setDrillDownData] = useState<any[]>([]);
-  const [userStats, setUserStats] = useState<any[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState('all');
-  const [selectedUser, setSelectedUser] = useState('all');
-  const [filteredUserStats, setFilteredUserStats] = useState<any[]>([]);
+
 
   useEffect(() => {
     fetchAnalyticsData();
-    fetchUserStats();
   }, [timeRange]);
-
-  useEffect(() => {
-    filterUserStats();
-  }, [userStats, selectedMonth, selectedUser]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -163,12 +158,38 @@ const Analytics = () => {
         sold: monthlyData[month].sold
       }));
 
+      // Process salon statistics
+      const salonCounts = customers.reduce((acc, customer) => {
+        if (customer.salon) {
+          acc[customer.salon] = (acc[customer.salon] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const salonStats = Object.entries(salonCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      // Process sales manager statistics
+      const salesManagerCounts = customers.reduce((acc, customer) => {
+        if (customer.sales_manager) {
+          acc[customer.sales_manager] = (acc[customer.sales_manager] || 0) + 1;
+        }
+        return acc;
+      }, {} as Record<string, number>);
+
+      const salesManagerStats = Object.entries(salesManagerCounts)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
       setAnalyticsData({
         modelStats,
         sourceStats,
         monthlyStats,
         ageGroupStats,
-        genderStats
+        genderStats,
+        salonStats,
+        salesManagerStats
       });
     } catch (error) {
       console.error('Error fetching analytics data:', error);
@@ -177,82 +198,9 @@ const Analytics = () => {
     }
   };
 
-  const fetchUserStats = async () => {
-     try {
-       const { data: customers, error } = await supabase
-         .from('customers')
-         .select('created_by, created_at');
-       
-       if (error) throw error;
-       
-       // Get unique user IDs
-       const userIds = [...new Set(customers?.map(c => c.created_by) || [])];
-       
-       // Fetch user profiles
-       const { data: profiles, error: profilesError } = await supabase
-         .from('profiles')
-         .select('id, full_name')
-         .in('id', userIds);
-       
-       if (profilesError) throw profilesError;
-       
-       const userCounts = customers?.reduce((acc, customer) => {
-         const userId = customer.created_by;
-         const profile = profiles?.find(p => p.id === userId);
-         const fullName = profile?.full_name || 'Bilinməyən';
-         
-         if (!acc[userId]) {
-           acc[userId] = {
-             user_id: userId,
-             full_name: fullName,
-             customer_count: 0,
-             monthly_counts: {}
-           };
-         }
-         
-         acc[userId].customer_count++;
-         
-         const monthKey = new Date(customer.created_at).toISOString().slice(0, 7);
-         acc[userId].monthly_counts[monthKey] = (acc[userId].monthly_counts[monthKey] || 0) + 1;
-         
-         return acc;
-       }, {} as Record<string, any>) || {};
-       
-       setUserStats(Object.values(userCounts));
-     } catch (error) {
-       console.error('Error fetching user stats:', error);
-     }
-   };
 
-  const filterUserStats = () => {
-    let filtered = [...userStats];
-    
-    if (selectedUser !== 'all') {
-      filtered = filtered.filter(user => user.user_id === selectedUser);
-    }
-    
-    if (selectedMonth !== 'all') {
-      filtered = filtered.map(user => ({
-        ...user,
-        customer_count: user.monthly_counts[selectedMonth] || 0
-      })).filter(user => user.customer_count > 0);
-    }
-    
-    filtered.sort((a, b) => b.customer_count - a.customer_count);
-    setFilteredUserStats(filtered);
-  };
 
-  const getMonthName = (monthKey: string) => {
-    const months = {
-      '2025-01': 'Yanvar 2025',
-      '2024-12': 'Dekabr 2024',
-      '2024-11': 'Noyabr 2024',
-      '2024-10': 'Oktyabr 2024',
-      '2024-09': 'Sentyabr 2024',
-      '2024-08': 'Avqust 2024'
-    };
-    return months[monthKey as keyof typeof months] || monthKey;
-  };
+
 
   const handleChartClick = async (data: any, chartType: string) => {
     if (!data || !data.name) return;
@@ -273,6 +221,12 @@ const Analytics = () => {
           break;
         case 'age':
           query = query.eq('age_group', data.name);
+          break;
+        case 'salon':
+          query = query.eq('salon', data.name);
+          break;
+        case 'sales_manager':
+          query = query.eq('sales_manager', data.name);
           break;
       }
       
@@ -393,112 +347,9 @@ const Analytics = () => {
         </motion.div>
       )}
 
-      {/* Salon and Sales Manager Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <SalonStatistics selectedMonth={selectedMonth} />
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <SalesManagerStatistics selectedMonth={selectedMonth} />
-        </motion.div>
-      </div>
 
-      {/* User Statistics */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-      >
-        <Card className="card-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              İstifadəçi Statistikası
-            </CardTitle>
-            <CardDescription>Hansı istifadəçinin neçə müştəri əlavə etdiyi</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Ay seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Bütün aylar</SelectItem>
-                    <SelectItem value="2025-01">Yanvar 2025</SelectItem>
-                    <SelectItem value="2024-12">Dekabr 2024</SelectItem>
-                    <SelectItem value="2024-11">Noyabr 2024</SelectItem>
-                    <SelectItem value="2024-10">Oktyabr 2024</SelectItem>
-                    <SelectItem value="2024-09">Sentyabr 2024</SelectItem>
-                    <SelectItem value="2024-08">Avqust 2024</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="İstifadəçi seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Bütün istifadəçilər</SelectItem>
-                    {userStats.map(user => (
-                      <SelectItem key={user.user_id} value={user.user_id}>
-                        {user.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-3">
-                {filteredUserStats.map((user, index) => (
-                  <motion.div
-                    key={user.user_id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary">
-                          {user.full_name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{user.full_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedMonth === 'all' ? 'Ümumi' : getMonthName(selectedMonth)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{user.customer_count}</p>
-                      <p className="text-sm text-muted-foreground">müştəri</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              
-              {filteredUserStats.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Seçilmiş kriterlərə uyğun məlumat tapılmadı</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+
+
 
       {/* Model Interest */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -512,7 +363,7 @@ const Analytics = () => {
               <CardTitle className="flex items-center gap-2">
                 <Car className="w-5 h-5 text-primary" />
                 Ən Çox Maraqlanılan Modellər
-                <Badge variant="outline" className="ml-auto">Klikə bilərsiniz</Badge>
+                <Badge variant="outline" className="ml-auto">Klikləyin</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -550,7 +401,7 @@ const Analytics = () => {
               <CardTitle className="flex items-center gap-2">
                 <Target className="w-5 h-5 text-primary" />
                 Reklam Mənbələri
-                <Badge variant="outline" className="ml-auto">Klikə bilərsiniz</Badge>
+                <Badge variant="outline" className="ml-auto">Klikləyin</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -626,13 +477,13 @@ const Analytics = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={analyticsData.genderStats}
                   cx="50%"
                   cy="50%"
-                  outerRadius={70}
+                  outerRadius={60}
                   fill="#8884d8"
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -643,6 +494,56 @@ const Analytics = () => {
                 </Pie>
                 <Tooltip />
               </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              Salon Statistikası
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analyticsData.salonStats}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar 
+                  dataKey="value" 
+                  fill="#8884d8" 
+                  onClick={(data) => handleChartClick(data, 'salon')}
+                  style={{ cursor: 'pointer' }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Satış Meneceri Statistikası
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analyticsData.salesManagerStats}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar 
+                  dataKey="value" 
+                  fill="#82ca9d" 
+                  onClick={(data) => handleChartClick(data, 'sales_manager')}
+                  style={{ cursor: 'pointer' }}
+                />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

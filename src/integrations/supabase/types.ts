@@ -27,6 +27,8 @@ export type Database = {
           interested_model: string | null
           notes: string | null
           phone: string
+          salon: string | null
+          sales_manager: string | null
           status: Database["public"]["Enums"]["customer_status"] | null
           updated_at: string | null
         }
@@ -42,6 +44,8 @@ export type Database = {
           interested_model?: string | null
           notes?: string | null
           phone: string
+          salon?: string | null
+          sales_manager?: string | null
           status?: Database["public"]["Enums"]["customer_status"] | null
           updated_at?: string | null
         }
@@ -57,6 +61,8 @@ export type Database = {
           interested_model?: string | null
           notes?: string | null
           phone?: string
+          salon?: string | null
+          sales_manager?: string | null
           status?: Database["public"]["Enums"]["customer_status"] | null
           updated_at?: string | null
         }

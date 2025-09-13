@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, UserCog, Mail, Calendar, Shield, Users, Key } from 'lucide-react';
+import { Plus, Edit, UserCog, Mail, Calendar, Shield, Users, Key, Trash2 } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -184,6 +184,46 @@ const UserManagement = () => {
       confirmPassword: ''
     });
     setIsPasswordDialogOpen(true);
+  };
+
+  const handleDelete = async (user: UserProfile) => {
+    if (!confirm(`"${user.full_name}" istifadəçisini silmək istədiyinizə əminsiniz? Bu əməliyyat geri alına bilməz.`)) {
+      return;
+    }
+
+    try {
+      // First delete the user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Then delete the auth user using edge function
+      const { error: authError } = await supabase.functions.invoke('delete-user', {
+        body: { userId: user.user_id }
+      });
+
+      if (authError) {
+        console.warn('Auth user deletion failed:', authError);
+        // Continue anyway as profile is already deleted
+      }
+
+      toast({
+        title: "Uğur!",
+        description: "İstifadəçi silindi"
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: "Xəta",
+        description: error.message || "İstifadəçi silinərkən xəta baş verdi",
+        variant: "destructive"
+      });
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -451,6 +491,15 @@ const UserManagement = () => {
                           >
                             <Key className="w-4 h-4" />
                             Şifrə Dəyiş
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(user)}
+                            className="flex items-center gap-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Sil
                           </Button>
                         </div>
                       </TableCell>
