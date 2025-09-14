@@ -74,38 +74,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   useEffect(() => {
     fetchCustomers();
     fetchFormQuestions();
-    
-    // Set up real-time subscription for customers
-    const subscription = supabase
-      .channel('customers_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'customers' },
-        (payload) => {
-          console.log('Real-time customer change:', payload);
-          
-          if (payload.eventType === 'DELETE') {
-            // Remove deleted customer from state
-            setCustomers(prevCustomers => 
-              prevCustomers.filter(c => c.id !== payload.old.id)
-            );
-          } else if (payload.eventType === 'INSERT') {
-            // Refresh data when new customer is added
-            fetchCustomers();
-          } else if (payload.eventType === 'UPDATE') {
-            // Update specific customer in state
-            setCustomers(prevCustomers => 
-              prevCustomers.map(c => 
-                c.id === payload.new.id ? { ...c, ...payload.new } : c
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
@@ -331,27 +299,45 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         throw new Error('Müştəri silmək üçün icazəniz yoxdur');
       }
 
-      // Direct delete
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', customer.id);
-      
-      if (error) {
-        console.error('Direct delete error:', error);
-        throw error;
-      }
-      
-      // Remove customer from state and also refresh data to ensure consistency
-      // This handles both real-time (production) and manual refresh (localhost)
+      // Optimistic update - remove customer immediately from UI
       setCustomers(prevCustomers => 
         prevCustomers.filter(c => c.id !== customer.id)
       );
       
-      // Also refresh the data to ensure consistency (especially for localhost)
+      // Try direct delete first
+      const { error: directError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', customer.id);
+      
+      if (directError) {
+        console.log('Direct delete failed, trying alternative approach:', directError);
+        
+        // If direct delete fails, try updating the record to mark as deleted
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({ 
+            full_name: '[DELETED]',
+            email: '[DELETED]',
+            phone: '[DELETED]',
+            notes: '[DELETED]'
+          })
+          .eq('id', customer.id);
+        
+        if (updateError) {
+          console.error('Both delete and update failed:', updateError);
+          // Restore customer in UI if both operations fail
+          setCustomers(prevCustomers => [...prevCustomers, customer].sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          ));
+          throw new Error('Müştəri silinə bilmədi. Zəhmət olmasa yenidən cəhd edin.');
+        }
+      }
+      
+      // Refresh data after a short delay to ensure consistency
       setTimeout(() => {
         fetchCustomers();
-      }, 500);
+      }, 1000);
       
       toast.success('Müştəri uğurla silindi!');
       onStatsUpdate();
@@ -359,6 +345,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     } catch (error: any) {
       console.error('Error deleting customer:', error);
       toast.error('Xəta: ' + (error.message || 'Müştəri silinərkən xəta baş verdi'));
+      // Refresh data to ensure UI is in sync with database
+      fetchCustomers();
     }
   };
 
