@@ -67,8 +67,11 @@ const Analytics = () => {
         dateFilter = startDate.toISOString();
       }
 
-      // Fetch all customers
-      let query = supabase.from('customers').select('*');
+      // Fetch all customers (excluding deleted ones)
+      let query = supabase.from('customers')
+        .select('*')
+        .not('full_name', 'like', '[DELETED%')
+        .not('age_group', 'eq', '[DELETED]');
       if (dateFilter) {
         query = query.gte('created_at', dateFilter);
       }

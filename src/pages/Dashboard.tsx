@@ -60,24 +60,30 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      // Total customers
+      // Total customers (excluding deleted ones)
       const { count: totalCustomers } = await supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .not('full_name', 'like', '[DELETED%')
+        .not('age_group', 'eq', '[DELETED]');
 
-      // Today's customers
+      // Today's customers (excluding deleted ones)
       const today = new Date().toISOString().split('T')[0];
       const { count: todayCustomers } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
+        .not('full_name', 'like', '[DELETED%')
+        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', `${today}T00:00:00.000Z`)
         .lt('created_at', `${today}T23:59:59.999Z`);
 
-      // Monthly customers
+      // Monthly customers (excluding deleted ones)
       const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       const { count: monthlyCustomers } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
+        .not('full_name', 'like', '[DELETED%')
+        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', firstDayOfMonth);
 
       setStats({

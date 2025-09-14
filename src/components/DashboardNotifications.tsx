@@ -33,6 +33,8 @@ const DashboardNotifications: React.FC = () => {
       const { data: recentCustomers, error } = await supabase
         .from('customers')
         .select('full_name, created_at')
+        .not('full_name', 'like', '[DELETED%')
+        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', fifteenMinutesAgo)
         .order('created_at', { ascending: false });
 
