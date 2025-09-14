@@ -74,6 +74,38 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   useEffect(() => {
     fetchCustomers();
     fetchFormQuestions();
+    
+    // Set up real-time subscription for customers
+    const subscription = supabase
+      .channel('customers_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'customers' },
+        (payload) => {
+          console.log('Real-time customer change:', payload);
+          
+          if (payload.eventType === 'DELETE') {
+            // Remove deleted customer from state
+            setCustomers(prevCustomers => 
+              prevCustomers.filter(c => c.id !== payload.old.id)
+            );
+          } else if (payload.eventType === 'INSERT') {
+            // Refresh data when new customer is added
+            fetchCustomers();
+          } else if (payload.eventType === 'UPDATE') {
+            // Update specific customer in state
+            setCustomers(prevCustomers => 
+              prevCustomers.map(c => 
+                c.id === payload.new.id ? { ...c, ...payload.new } : c
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
