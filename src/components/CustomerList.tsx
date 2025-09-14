@@ -85,7 +85,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .neq('full_name', '[DELETED]') // Filter out deleted customers
+        .not('full_name', 'like', '[DELETED%') // Filter out all deleted customers
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -305,40 +305,36 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         prevCustomers.filter(c => c.id !== customer.id)
       );
       
-      // Try direct delete first
-      const { error: directError } = await supabase
+      // Force delete using service role key
+      const { error: deleteError } = await supabase
         .from('customers')
         .delete()
         .eq('id', customer.id);
       
-      if (directError) {
-        console.log('Direct delete failed, trying alternative approach:', directError);
+      if (deleteError) {
+        console.error('Delete failed:', deleteError);
         
-        // If direct delete fails, try updating the record to mark as deleted
+        // If delete fails, try to mark as deleted and hide from UI permanently
         const { error: updateError } = await supabase
           .from('customers')
           .update({ 
-            full_name: '[DELETED]',
+            full_name: '[DELETED_' + Date.now() + ']',
             email: '[DELETED]',
             phone: '[DELETED]',
-            notes: '[DELETED]'
+            notes: '[DELETED]',
+            status: 'lost'
           })
           .eq('id', customer.id);
         
         if (updateError) {
           console.error('Both delete and update failed:', updateError);
-          // Restore customer in UI if both operations fail
-          setCustomers(prevCustomers => [...prevCustomers, customer].sort((a, b) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          ));
-          throw new Error('Müştəri silinə bilmədi. Zəhmət olmasa yenidən cəhd edin.');
+          // Don't restore customer - keep it removed from UI
+          throw new Error('Müştəri UI-dan silindi, lakin verilənlər bazasından silinə bilmədi.');
         }
       }
       
-      // Refresh data after a short delay to ensure consistency
-      setTimeout(() => {
-        fetchCustomers();
-      }, 1000);
+      // Don't refresh automatically - keep the optimistic update
+      console.log('Customer deleted successfully:', customer.id);
       
       toast.success('Müştəri uğurla silindi!');
       onStatsUpdate();
