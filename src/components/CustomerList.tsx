@@ -86,6 +86,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         .from('customers')
         .select('*')
         .not('full_name', 'like', '[DELETED%') // Filter out all deleted customers
+        .not('age_group', 'eq', '[DELETED]') // Additional filter for deleted customers
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -305,32 +306,26 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         prevCustomers.filter(c => c.id !== customer.id)
       );
       
-      // Force delete using service role key
-      const { error: deleteError } = await supabase
+      // Mark customer as deleted (since we can't physically delete due to RLS)
+      const { error: updateError } = await supabase
         .from('customers')
-        .delete()
+        .update({ 
+          full_name: '[DELETED_' + Date.now() + ']',
+          email: '[DELETED_' + Date.now() + ']',
+          phone: '[DELETED_' + Date.now() + ']',
+          notes: '[DELETED_' + Date.now() + ']',
+          status: 'lost',
+          // Add a special flag to mark as deleted
+          age_group: '[DELETED]',
+          gender: '[DELETED]',
+          interested_model: '[DELETED]',
+          ad_source: '[DELETED]'
+        })
         .eq('id', customer.id);
       
-      if (deleteError) {
-        console.error('Delete failed:', deleteError);
-        
-        // If delete fails, try to mark as deleted and hide from UI permanently
-        const { error: updateError } = await supabase
-          .from('customers')
-          .update({ 
-            full_name: '[DELETED_' + Date.now() + ']',
-            email: '[DELETED]',
-            phone: '[DELETED]',
-            notes: '[DELETED]',
-            status: 'lost'
-          })
-          .eq('id', customer.id);
-        
-        if (updateError) {
-          console.error('Both delete and update failed:', updateError);
-          // Don't restore customer - keep it removed from UI
-          throw new Error('Müştəri UI-dan silindi, lakin verilənlər bazasından silinə bilmədi.');
-        }
+      if (updateError) {
+        console.error('Update failed:', updateError);
+        throw new Error('Müştəri silinərkən xəta baş verdi.');
       }
       
       // Don't refresh automatically - keep the optimistic update
