@@ -85,6 +85,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
+        .neq('full_name', '[DELETED]') // Filter out deleted customers
         .order('created_at', { ascending: false });
       
       if (error) throw error;
