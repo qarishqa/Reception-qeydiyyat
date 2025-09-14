@@ -342,10 +342,16 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         throw error;
       }
       
-      // Remove customer from state instead of refetching all data
+      // Remove customer from state and also refresh data to ensure consistency
+      // This handles both real-time (production) and manual refresh (localhost)
       setCustomers(prevCustomers => 
         prevCustomers.filter(c => c.id !== customer.id)
       );
+      
+      // Also refresh the data to ensure consistency (especially for localhost)
+      setTimeout(() => {
+        fetchCustomers();
+      }, 500);
       
       toast.success('Müştəri uğurla silindi!');
       onStatsUpdate();
