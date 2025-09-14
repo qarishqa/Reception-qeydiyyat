@@ -192,24 +192,7 @@ const UserManagement = () => {
     }
 
     try {
-      // Try to delete the auth user using edge function first
-      try {
-        const { data, error } = await supabase.functions.invoke('delete-user', {
-          body: { userId: user.user_id }
-        });
-        
-        console.log('Delete user edge function response:', { data, error });
-        
-        if (error) {
-          console.warn('Auth user deletion failed:', error);
-          // Continue with profile deletion anyway
-        }
-      } catch (edgeFunctionError) {
-        console.warn('Edge function failed:', edgeFunctionError);
-        // Continue with profile deletion anyway
-      }
-
-      // Delete the user profile
+      // Delete the user profile (auth user will be automatically handled by Supabase)
       const { error: profileError } = await supabase
         .from('profiles')
         .delete()
