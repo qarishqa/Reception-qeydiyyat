@@ -82,21 +82,32 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
   const fetchCustomers = async () => {
     try {
-      // Use a single query with join to get both customer and profile data
       const { data, error } = await supabase
         .from('customers')
-        .select(`
-          *,
-          profiles:created_by (
-            user_id,
-            full_name
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      setCustomers((data as unknown as Customer[]) || []);
+      // Fetch profiles separately to get creator names
+      const creatorIds = [...new Set(data?.map(customer => customer.created_by).filter(Boolean))];
+      
+      let profiles = [];
+      if (creatorIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', creatorIds);
+        profiles = profilesData || [];
+      }
+      
+      // Merge the data
+      const customersWithProfiles = data?.map(customer => ({
+        ...customer,
+        profiles: profiles?.find(profile => profile.user_id === customer.created_by) || null
+      }));
+      
+      setCustomers(customersWithProfiles as any || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
       toast.error('Müştəri məlumatları yüklənə bilmədi');
