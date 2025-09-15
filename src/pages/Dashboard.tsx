@@ -17,7 +17,9 @@ import {
   Phone,
   Mail,
   HelpCircle,
-  UserCog
+  UserCog,
+  Menu,
+  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import CustomerForm from '@/components/CustomerForm';
@@ -39,6 +41,7 @@ const Dashboard = () => {
   const { profile, signOut, isAdmin, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
     todayCustomers: 0,
@@ -157,8 +160,16 @@ const Dashboard = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="text-muted-foreground hover:text-foreground transition-smooth p-1 sm:p-2 md:hidden"
+              >
+                {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
                 onClick={handleSignOut}
-                className="text-muted-foreground hover:text-foreground transition-smooth p-1 sm:p-2"
+                className="text-muted-foreground hover:text-foreground transition-smooth p-1 sm:p-2 hidden md:block"
               >
                 <LogOut className="w-4 h-4" />
               </Button>
@@ -170,7 +181,8 @@ const Dashboard = () => {
       {/* Navigation */}
       <nav className="bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex space-x-8">
             <button
               onClick={() => setActiveTab('overview')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
@@ -195,19 +207,6 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 Müştərilər
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('add-customer')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
-                activeTab === 'add-customer'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Müştəri Əlavə Et
               </div>
             </button>
             {isAdmin && (
@@ -254,6 +253,107 @@ const Dashboard = () => {
               </>
             )}
           </div>
+          
+          {/* Mobile Navigation */}
+          {isMobileMenuOpen && (
+            <div className="md:hidden py-4 space-y-2">
+              <button
+                onClick={() => {
+                  setActiveTab('overview');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
+                  activeTab === 'overview'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="w-4 h-4" />
+                  Ümumi Baxış
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('customers');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
+                  activeTab === 'customers'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="w-4 h-4" />
+                  Müştərilər
+                </div>
+              </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={() => {
+                      setActiveTab('analytics');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
+                      activeTab === 'analytics'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <TrendingUp className="w-4 h-4" />
+                      Analitika
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('form-management');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
+                      activeTab === 'form-management'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <HelpCircle className="w-4 h-4" />
+                      Form İdarəçiliyi
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab('user-management');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
+                      activeTab === 'user-management'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <UserCog className="w-4 h-4" />
+                      İstifadəçilər
+                    </div>
+                  </button>
+                </>
+              )}
+              <div className="border-t pt-2 mt-2">
+                <button
+                  onClick={handleSignOut}
+                  className="w-full text-left py-3 px-4 rounded-lg font-medium text-sm text-red-600 hover:bg-red-50 transition-smooth"
+                >
+                  <div className="flex items-center gap-3">
+                    <LogOut className="w-4 h-4" />
+                    Çıxış
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -312,6 +412,23 @@ const Dashboard = () => {
                   isPositive: true
                 }}
               />
+            </motion.div>
+
+            {/* Add Customer Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="flex justify-center"
+            >
+              <Button
+                onClick={() => setActiveTab('add-customer')}
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Yeni Müştəri Əlavə Et
+              </Button>
             </motion.div>
 
             {/* Quick Actions */}
