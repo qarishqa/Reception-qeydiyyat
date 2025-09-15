@@ -132,21 +132,21 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/5">
       {/* Header */}
       <header className="bg-card border-b shadow-soft">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 cursor-pointer" onClick={() => window.location.reload()}>
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-                <Car className="w-6 h-6 text-primary-foreground" />
+            <div className="flex items-center space-x-2 sm:space-x-4 cursor-pointer min-w-0 flex-1" onClick={() => window.location.reload()}>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
+                <Car className="w-4 h-4 sm:w-6 sm:h-6 text-primary-foreground" />
               </div>
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">Performance Center</h1>
-                <p className="text-sm text-muted-foreground">Müştəri Qeydiyyat Sistemi</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm sm:text-xl font-semibold text-foreground truncate">Performance Center</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Müştəri Qeydiyyat Sistemi</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 sm:space-x-4 flex-shrink-0">
               <DashboardNotifications />
-              <div className="text-right">
+              <div className="text-right hidden md:block">
                 <p className="text-sm font-medium text-foreground">{profile?.full_name}</p>
                 <div className="flex items-center gap-2">
                   <Badge variant={isAdmin ? "default" : "secondary"} className="text-xs">
@@ -158,7 +158,7 @@ const Dashboard = () => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleSignOut}
-                className="text-muted-foreground hover:text-foreground transition-smooth"
+                className="text-muted-foreground hover:text-foreground transition-smooth p-1 sm:p-2"
               >
                 <LogOut className="w-4 h-4" />
               </Button>
