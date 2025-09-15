@@ -137,7 +137,7 @@ const Dashboard = () => {
       <header className="bg-card border-b shadow-soft">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2 sm:space-x-4 cursor-pointer min-w-0 flex-1" onClick={() => window.location.reload()}>
+            <div className="flex items-center space-x-2 sm:space-x-4 cursor-pointer min-w-0 flex-1" onClick={() => window.location.href = '/'}>
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
                 <Car className="w-4 h-4 sm:w-6 sm:h-6 text-primary-foreground" />
               </div>
@@ -424,7 +424,7 @@ const Dashboard = () => {
               <Button
                 onClick={() => setActiveTab('add-customer')}
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Yeni Müştəri Əlavə Et
