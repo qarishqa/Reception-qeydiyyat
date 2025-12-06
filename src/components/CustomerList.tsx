@@ -33,16 +33,30 @@ import {
   Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { CONFIG } from '@/lib/constants';
+import { handleError, ErrorContext } from '@/lib/errorHandler';
+import { applySoftDeleteFilter } from '@/lib/supabaseHelpers';
 
 interface Customer {
   id: string;
   phone: string;
   full_name: string;
-  email: string;
   age_group: string;
   gender: string;
   interested_model: string;
   ad_source: string;
+  social_media_platform?: string;
+  tv_channel?: string;
+  salon?: string;
+  sales_manager?: string;
   status: 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost';
   notes: string;
   created_at: string;
@@ -70,6 +84,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   const [editLoading, setEditLoading] = useState(false);
   const [formQuestions, setFormQuestions] = useState<any[]>([]);
   const [editDynamicAnswers, setEditDynamicAnswers] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchCustomers();
@@ -78,16 +93,20 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
   useEffect(() => {
     filterCustomers();
+    setCurrentPage(1); // Reset to first page when filters change
   }, [customers, searchTerm, modelFilter, sourceFilter]);
 
   const fetchCustomers = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('customers')
         .select('*')
-        .not('full_name', 'like', '[DELETED%') // Filter out all deleted customers
-        .not('age_group', 'eq', '[DELETED]') // Additional filter for deleted customers
         .order('created_at', { ascending: false });
+      
+      // Apply soft delete filter (automatically handles column existence)
+      query = await applySoftDeleteFilter(query);
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       
@@ -96,10 +115,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       
       let profiles = [];
       if (creatorIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, full_name')
           .in('user_id', creatorIds);
+        
+        if (profilesError) throw profilesError;
         profiles = profilesData || [];
       }
       
@@ -111,8 +132,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       
       setCustomers(customersWithProfiles as any || []);
     } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast.error('Müştəri məlumatları yüklənə bilmədi');
+      handleError(error, {
+        action: 'fetchCustomers',
+        component: 'CustomerList',
+        userId: user?.id,
+      });
     } finally {
       setLoading(false);
     }
@@ -129,7 +153,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       if (error) throw error;
       setFormQuestions(data || []);
     } catch (error) {
-      console.error('Error fetching form questions:', error);
+      handleError(error, {
+        action: 'fetchFormQuestions',
+        component: 'CustomerList',
+      }, false); // Don't show toast for form questions as it's not critical
     }
   };
 
@@ -140,14 +167,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     if (searchTerm) {
       filtered = filtered.filter(customer =>
         customer.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone.includes(searchTerm) ||
-        customer.email?.toLowerCase().includes(searchTerm.toLowerCase())
+        customer.phone.includes(searchTerm)
       );
     }
 
-    // Model filter
+    // Model filter - check if any of the comma-separated models match
     if (modelFilter !== 'all') {
-      filtered = filtered.filter(customer => customer.interested_model === modelFilter);
+      filtered = filtered.filter(customer => {
+        if (!customer.interested_model) return false;
+        const models = customer.interested_model.split(',').map(m => m.trim());
+        return models.includes(modelFilter);
+      });
     }
 
     // Source filter
@@ -157,6 +187,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
     setFilteredCustomers(filtered);
   };
+
+  // Pagination calculations
+  const itemsPerPage = CONFIG.PAGINATION_SIZE;
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
 
   const handleTagClick = (filterType: 'model' | 'source' | 'age_group', value: string) => {
     if (filterType === 'model') {
@@ -188,11 +225,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     const headers = [
       'Ad və Soyad',
       'Telefon',
-      'Email',
       'Yaş Qrupu',
       'Cins',
       'Model',
       'Reklam Mənbəyi',
+      'Sosial Şəbəkə',
+      'TV Kanalı',
       'Əlavə Etdi',
       'Tarix'
     ];
@@ -202,11 +240,12 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       ...filteredCustomers.map(customer => [
         `"${customer.full_name}"`,
         customer.phone,
-        `"${customer.email || ''}"`,
         `"${customer.age_group || ''}"`,
         `"${customer.gender || ''}"`,
         `"${customer.interested_model || ''}"`,
         `"${customer.ad_source || ''}"`,
+        `"${customer.social_media_platform || ''}"`,
+        `"${customer.tv_channel || ''}"`,
         `"${customer.profiles?.full_name || ''}"`,
         new Date(customer.created_at).toLocaleDateString('az-AZ')
       ].join(','))
@@ -226,6 +265,22 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
   };
 
   const getUniqueValues = (field: keyof Customer) => {
+    if (field === 'interested_model') {
+      // For interested_model, split comma-separated values and get unique individual models
+      const allModels: string[] = [];
+      customers.forEach(customer => {
+        const modelValue = customer[field];
+        if (modelValue && typeof modelValue === 'string') {
+          modelValue.split(',').forEach(model => {
+            const trimmed = model.trim();
+            if (trimmed && !allModels.includes(trimmed)) {
+              allModels.push(trimmed);
+            }
+          });
+        }
+      });
+      return allModels.sort();
+    }
     return [...new Set(customers.map(customer => customer[field]).filter(Boolean))];
   };
 
@@ -234,13 +289,88 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     setEditFormData({
       full_name: customer.full_name,
       phone: customer.phone,
-      email: customer.email,
       age_group: customer.age_group,
       gender: customer.gender,
       interested_model: customer.interested_model,
-      ad_source: customer.ad_source
+      ad_source: customer.ad_source,
+      salon: customer.salon,
+      sales_manager: customer.sales_manager,
+      notes: customer.notes
     });
-    setEditDynamicAnswers({});
+    
+    // Load dynamic answers from customer data
+    const initialDynamicAnswers: Record<string, string> = {};
+    
+    // Load salon into dynamic answers
+    if (customer.salon) {
+      const salonQuestion = formQuestions.find(q => 
+        q.question_text?.toLowerCase().includes('salon')
+      );
+      if (salonQuestion) {
+        initialDynamicAnswers[salonQuestion.id] = customer.salon;
+      }
+    }
+    
+    // Load sales_manager into dynamic answers
+    if (customer.sales_manager) {
+      const salesQuestion = formQuestions.find(q => 
+        q.question_text?.toLowerCase().includes('satış') || 
+        q.question_text?.toLowerCase().includes('təmsilçi')
+      );
+      if (salesQuestion) {
+        initialDynamicAnswers[salesQuestion.id] = customer.sales_manager;
+      }
+    }
+    
+    // Load social_media_platform into dynamic answers
+    if (customer.social_media_platform && customer.ad_source) {
+      const adSource = customer.ad_source.toLowerCase();
+      if (adSource.includes('sosial') || adSource.includes('şəbəkə') || adSource.includes('social')) {
+        const socialMediaParentQuestion = formQuestions.find(q => 
+          q.question_text?.toLowerCase().includes('reklam') && 
+          q.options?.some((opt: string) => {
+            const optLower = opt.toLowerCase();
+            return optLower.includes('sosial') || optLower.includes('şəbəkə');
+          })
+        );
+        
+        if (socialMediaParentQuestion) {
+          const socialMediaSubQuestion = formQuestions.find(q => 
+            q.parent_question_id === socialMediaParentQuestion.id &&
+            (q.trigger_value?.toLowerCase().includes('sosial') || 
+             q.trigger_value?.toLowerCase().includes('şəbəkə'))
+          );
+          
+          if (socialMediaSubQuestion) {
+            initialDynamicAnswers[socialMediaSubQuestion.id] = customer.social_media_platform;
+          }
+        }
+      }
+    }
+    
+    // Load tv_channel into dynamic answers
+    if (customer.tv_channel && customer.ad_source?.toLowerCase() === 'tv') {
+      const tvParentQuestion = formQuestions.find(q => 
+        q.question_text?.toLowerCase().includes('reklam') && 
+        q.options?.some((opt: string) => opt.toLowerCase() === 'tv')
+      );
+      
+      if (tvParentQuestion) {
+        const tvSubQuestion = formQuestions.find(q => 
+          q.parent_question_id === tvParentQuestion.id &&
+          q.trigger_value?.toLowerCase() === 'tv'
+        );
+        
+        if (tvSubQuestion) {
+          initialDynamicAnswers[tvSubQuestion.id] = customer.tv_channel;
+        }
+      }
+    }
+    
+    console.log('Loaded editFormData:', { salon: customer.salon, sales_manager: customer.sales_manager, tv_channel: customer.tv_channel });
+    console.log('Loaded initialDynamicAnswers:', initialDynamicAnswers);
+    
+    setEditDynamicAnswers(initialDynamicAnswers);
     setEditDialogOpen(true);
   };
 
@@ -249,15 +379,92 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
     
     setEditLoading(true);
     try {
-      const updateData = {
+      // Get salon and sales_manager from editFormData (now mapped directly)
+      const salon = editFormData.salon?.trim() || undefined;
+      const salesManager = editFormData.sales_manager?.trim() || undefined;
+      
+      // Extract social media platform from editDynamicAnswers if ad_source is "Sosial şəbəkə"
+      let socialMediaPlatform: string | undefined = undefined;
+      const adSource = editFormData.ad_source?.toLowerCase() || '';
+      
+      if (adSource.includes('sosial') || adSource.includes('şəbəkə') || adSource.includes('social')) {
+        // Find social media parent question
+        const socialMediaParentQuestion = formQuestions.find(q => 
+          q.question_text?.toLowerCase().includes('reklam') && 
+          q.options?.some(opt => {
+            const optLower = opt.toLowerCase();
+            return optLower.includes('sosial') || optLower.includes('şəbəkə');
+          })
+        );
+        
+        if (socialMediaParentQuestion) {
+          // Find conditional question for social media
+          const socialMediaSubQuestion = formQuestions.find(q => 
+            q.parent_question_id === socialMediaParentQuestion.id &&
+            (q.trigger_value?.toLowerCase().includes('sosial') || 
+             q.trigger_value?.toLowerCase().includes('şəbəkə'))
+          );
+          
+          if (socialMediaSubQuestion) {
+            const platform = editDynamicAnswers[socialMediaSubQuestion.id];
+            if (platform && platform.trim()) {
+              socialMediaPlatform = platform.trim();
+              console.log('Social media platform for update:', socialMediaPlatform);
+            }
+          }
+        }
+      }
+
+      // Extract TV channel from editDynamicAnswers if ad_source is "TV"
+      let tvChannel: string | undefined = undefined;
+      
+      if (adSource === 'tv') {
+        const tvParentQuestion = formQuestions.find(q => 
+          q.question_text?.toLowerCase().includes('reklam') && 
+          q.options?.some(opt => opt.toLowerCase() === 'tv')
+        );
+        
+        if (tvParentQuestion) {
+          const tvSubQuestion = formQuestions.find(q => 
+            q.parent_question_id === tvParentQuestion.id &&
+            q.trigger_value?.toLowerCase() === 'tv'
+          );
+          
+          if (tvSubQuestion) {
+            const channel = editDynamicAnswers[tvSubQuestion.id];
+            if (channel && channel.trim()) {
+              tvChannel = channel.trim();
+              console.log('TV channel for update:', tvChannel);
+            }
+          }
+        }
+      }
+
+      const updateData: any = {
         full_name: editFormData.full_name,
         phone: editFormData.phone,
-        email: editFormData.email,
         age_group: editFormData.age_group,
         gender: editFormData.gender,
         interested_model: editFormData.interested_model,
-        ad_source: editFormData.ad_source
+        ad_source: editFormData.ad_source,
+        notes: editFormData.notes,
+        ...(salon !== undefined && { salon }),
+        ...(salesManager !== undefined && { sales_manager: salesManager }),
+        ...(socialMediaPlatform !== undefined && { social_media_platform: socialMediaPlatform }),
+        ...(tvChannel !== undefined && { tv_channel: tvChannel }),
       };
+
+      // If ad_source is not social media, clear the social_media_platform
+      if (!adSource.includes('sosial') && !adSource.includes('şəbəkə') && !adSource.includes('social')) {
+        updateData.social_media_platform = null;
+      }
+      
+      // If ad_source is not TV, clear the tv_channel
+      if (adSource !== 'tv') {
+        updateData.tv_channel = null;
+      }
+
+      console.log('Updating customer with data:', updateData);
 
       const { error } = await supabase
         .from('customers')
@@ -270,11 +477,16 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
       setEditDialogOpen(false);
       setEditingCustomer(null);
       setEditFormData({});
+      setEditDynamicAnswers({});
       fetchCustomers();
       onStatsUpdate();
     } catch (error: any) {
-      console.error('Error updating customer:', error);
-      toast.error('Xəta: ' + error.message);
+      handleError(error, {
+        action: 'updateCustomer',
+        component: 'CustomerList',
+        userId: user?.id,
+        metadata: { customerId: editingCustomer.id },
+      });
     } finally {
       setEditLoading(false);
     }
@@ -306,51 +518,44 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         prevCustomers.filter(c => c.id !== customer.id)
       );
       
-      // Mark customer as deleted (since we can't physically delete due to RLS)
+      // Soft delete customer using is_deleted flag
       const { error: updateError } = await supabase
         .from('customers')
         .update({ 
-          full_name: '[DELETED_' + Date.now() + ']',
-          email: '[DELETED_' + Date.now() + ']',
-          phone: '[DELETED_' + Date.now() + ']',
-          notes: '[DELETED_' + Date.now() + ']',
-          status: 'lost',
-          // Add a special flag to mark as deleted
-          age_group: '[DELETED]',
-          gender: '[DELETED]',
-          interested_model: '[DELETED]',
-          ad_source: '[DELETED]'
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          status: 'lost'
         })
         .eq('id', customer.id);
       
-      if (updateError) {
-        console.error('Update failed:', updateError);
-        throw new Error('Müştəri silinərkən xəta baş verdi.');
-      }
-      
-      // Don't refresh automatically - keep the optimistic update
-      console.log('Customer deleted successfully:', customer.id);
+      if (updateError) throw updateError;
       
       toast.success('Müştəri uğurla silindi!');
       onStatsUpdate();
       
     } catch (error: any) {
-      console.error('Error deleting customer:', error);
-      toast.error('Xəta: ' + (error.message || 'Müştəri silinərkən xəta baş verdi'));
+      handleError(error, {
+        action: 'deleteCustomer',
+        component: 'CustomerList',
+        userId: user?.id,
+        metadata: { customerId: customer.id },
+      });
       // Refresh data to ensure UI is in sync with database
       fetchCustomers();
     }
   };
 
   const renderEditFormField = (question: any): JSX.Element | null => {
-    const fieldName = question.question_text.toLowerCase().includes('yaş') ? 'age_group' :
-                     question.question_text.toLowerCase().includes('cins') ? 'gender' :
-                     question.question_text.toLowerCase().includes('model') ? 'interested_model' :
-                     question.question_text.toLowerCase().includes('reklam') ? 'ad_source' : '';
+    const questionLower = question.question_text.toLowerCase();
+    const fieldName = questionLower.includes('yaş') ? 'age_group' :
+                     questionLower.includes('cins') ? 'gender' :
+                     questionLower.includes('model') ? 'interested_model' :
+                     questionLower.includes('reklam') ? 'ad_source' :
+                     questionLower.includes('salon') ? 'salon' :
+                     (questionLower.includes('satış') || questionLower.includes('təmsilçi')) ? 'sales_manager' : '';
     
-    // Check if this is a phone or email field
+    // Check if this is a phone field
     const isPhoneField = question.question_text.toLowerCase().includes('telefon');
-    const isEmailField = question.question_text.toLowerCase().includes('email');
     
     // Handle conditional questions
     if (question.parent_question_id) {
@@ -378,28 +583,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
 
     // Render different input types based on question type
     const renderInput = () => {
-      // Force phone and email fields to be text inputs
+      // Force phone fields to be text inputs
       if (isPhoneField) {
         return (
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               type="tel"
-              value={String(currentValue || '')}
-              onChange={(e) => handleValueChange(e.target.value)}
-              placeholder={`${question.question_text} daxil edin`}
-              className="pl-10 transition-smooth focus:shadow-primary"
-            />
-          </div>
-        );
-      }
-      
-      if (isEmailField) {
-        return (
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              type="email"
               value={String(currentValue || '')}
               onChange={(e) => handleValueChange(e.target.value)}
               placeholder={`${question.question_text} daxil edin`}
@@ -522,7 +712,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         <div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Müştəri Siyahısı</h2>
           <p className="text-muted-foreground">
-            Ümumi {customers.length} müştəri, göstərilir {filteredCustomers.length}
+            Ümumi {customers.length} müştəri, filterləndikdən sonra {filteredCustomers.length} müştəri
+            {totalPages > 1 && ` (Səhifə ${currentPage}/${totalPages})`}
           </p>
         </div>
         
@@ -551,7 +742,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Ad, telefon və ya email axtar..."
+                placeholder="Ad və ya telefon axtar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 transition-smooth focus:shadow-primary"
@@ -605,7 +796,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCustomers.map((customer) => (
+                {paginatedCustomers.map((customer) => (
                   <TableRow key={customer.id} className="hover:bg-muted/30 transition-smooth border-b border-border/50">
                     <TableCell className="py-4 px-6">
                       <div className="space-y-2">
@@ -614,12 +805,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                           <Phone className="w-4 h-4" />
                           <span className="font-medium">{customer.phone}</span>
                         </div>
-                        {customer.email && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Mail className="w-4 h-4" />
-                            <span>{customer.email}</span>
-                          </div>
-                        )}
                         {customer.notes && (
                           <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2 max-w-xs">
                             {customer.notes}
@@ -639,14 +824,23 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                           </Badge>
                         )}
                         {customer.interested_model && (
-                          <Badge 
-                            variant="outline" 
-                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                            onClick={() => handleTagClick('model', customer.interested_model)}
-                          >
-                            <Car className="w-3 h-3 mr-1" />
-                            {customer.interested_model}
-                          </Badge>
+                          <>
+                            {customer.interested_model.split(',').map((model, index) => {
+                              const trimmedModel = model.trim();
+                              if (!trimmedModel) return null;
+                              return (
+                                <Badge 
+                                  key={index}
+                                  variant="outline" 
+                                  className="cursor-pointer hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                  onClick={() => handleTagClick('model', trimmedModel)}
+                                >
+                                  <Car className="w-3 h-3 mr-1" />
+                                  {trimmedModel}
+                                </Badge>
+                              );
+                            })}
+                          </>
                         )}
                         {customer.ad_source && (
                           <Badge 
@@ -712,6 +906,69 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
         </CardContent>
       </Card>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
+                  }}
+                  className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first page, last page, current page, and pages around current
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(page);
+                        }}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <PaginationItem key={page}>
+                      <span className="px-2">...</span>
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                  }}
+                  className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
       {/* Edit Customer Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -755,20 +1012,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ onStatsUpdate }) => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="edit-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      id="edit-email"
-                      type="email"
-                      value={editFormData.email || ''}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="customer@example.com"
-                      className="pl-10 transition-smooth focus:shadow-primary"
-                    />
-                  </div>
-                </div>
               </div>
 
               {/* Dynamic Form Fields - match CustomerForm exactly */}

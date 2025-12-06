@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Users, Car, Target, Calendar, Filter, Download } from 'lucide-react';
+import { TrendingUp, Users, Car, Target, Calendar, Filter, Download, Share2, Tv } from 'lucide-react';
 import { toast } from 'sonner';
+import { handleError } from '@/lib/errorHandler';
+import { checkIsDeletedColumnExists } from '@/lib/supabaseHelpers';
 
 
 interface AnalyticsData {
@@ -18,6 +20,8 @@ interface AnalyticsData {
   genderStats: Array<{ name: string; value: number }>;
   salonStats: Array<{ name: string; value: number }>;
   salesManagerStats: Array<{ name: string; value: number }>;
+  socialMediaStats: Array<{ name: string; value: number }>;
+  tvChannelStats: Array<{ name: string; value: number }>;
 }
 
 const Analytics = () => {
@@ -28,21 +32,53 @@ const Analytics = () => {
     ageGroupStats: [],
     genderStats: [],
     salonStats: [],
-    salesManagerStats: []
+    salesManagerStats: [],
+    socialMediaStats: [],
+    tvChannelStats: []
   });
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('all');
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
   const [drillDownData, setDrillDownData] = useState<any[]>([]);
+  const [formQuestions, setFormQuestions] = useState<any[]>([]);
 
 
   useEffect(() => {
-    fetchAnalyticsData();
+    const loadData = async () => {
+      await fetchFormQuestions();
+      await fetchAnalyticsData();
+    };
+    loadData();
   }, [timeRange]);
+
+  const fetchFormQuestions = async (): Promise<any[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('form_questions')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (error) throw error;
+      const questions = data || [];
+      setFormQuestions(questions);
+      return questions;
+    } catch (error) {
+      // Silently fail - not critical for analytics
+      console.error('Error fetching form questions:', error);
+      return [];
+    }
+  };
 
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
+      
+      // Ensure form questions are loaded
+      let questions = formQuestions;
+      if (questions.length === 0) {
+        questions = await fetchFormQuestions();
+      }
       
       // Build date filter
       let dateFilter = '';
@@ -67,11 +103,20 @@ const Analytics = () => {
         dateFilter = startDate.toISOString();
       }
 
+      const hasIsDeletedColumn = await checkIsDeletedColumnExists();
+
       // Fetch all customers (excluding deleted ones)
-      let query = supabase.from('customers')
-        .select('*')
-        .not('full_name', 'like', '[DELETED%')
-        .not('age_group', 'eq', '[DELETED]');
+      let query = supabase.from('customers').select('*');
+      
+      // Apply delete filter based on column existence
+      if (hasIsDeletedColumn) {
+        query = query.eq('is_deleted', false);
+      } else {
+        query = query
+          .not('full_name', 'like', '[DELETED%')
+          .not('age_group', 'eq', '[DELETED]');
+      }
+      
       if (dateFilter) {
         query = query.gte('created_at', dateFilter);
       }
@@ -185,6 +230,111 @@ const Analytics = () => {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+      // Process social media breakdown
+      // Find social media parent question and its sub-questions
+      const socialMediaParentQuestion = questions.find(q => 
+        q.question_text?.toLowerCase().includes('reklam') && 
+        q.options?.some(opt => {
+          const optLower = opt.toLowerCase();
+          return optLower.includes('sosial') || optLower.includes('şəbəkə') || optLower.includes('social');
+        })
+      );
+
+      const socialMediaSubQuestions = socialMediaParentQuestion 
+        ? questions.filter(q => 
+            q.parent_question_id === socialMediaParentQuestion.id &&
+            (q.trigger_value?.toLowerCase().includes('sosial') || 
+             q.trigger_value?.toLowerCase().includes('şəbəkə'))
+          )
+        : [];
+
+      // Get customers where ad_source contains "Sosial şəbəkə" or has social_media_platform
+      const socialMediaCustomers = customers.filter(customer => {
+        const source = customer.ad_source?.toLowerCase() || '';
+        const hasPlatform = customer.social_media_platform && customer.social_media_platform.trim();
+        return hasPlatform || 
+               source.includes('sosial') || 
+               source.includes('şəbəkə') || 
+               source.includes('social') || 
+               source.includes('sebeke');
+      });
+
+      // Process social media platforms - use social_media_platform column if available
+      const socialMediaPlatforms: Record<string, number> = {};
+      
+      // Count customers by platform using social_media_platform column
+      socialMediaCustomers.forEach(customer => {
+        // First, try to use social_media_platform column (preferred method)
+        if (customer.social_media_platform && customer.social_media_platform.trim()) {
+          const platform = customer.social_media_platform.trim();
+          socialMediaPlatforms[platform] = (socialMediaPlatforms[platform] || 0) + 1;
+          return;
+        }
+        
+        // Fallback: try to extract from ad_source or notes (for old data)
+        let platformFound = false;
+        const searchText = `${customer.ad_source || ''} ${customer.notes || ''}`.toLowerCase();
+        
+        // Common social media platforms
+        const platformKeywords: Record<string, string[]> = {
+          'Instagram': ['instagram', 'insta', 'ig'],
+          'Facebook': ['facebook', 'fb'],
+          'TikTok': ['tiktok', 'tik tok'],
+          'YouTube': ['youtube', 'yt'],
+          'LinkedIn': ['linkedin', 'linked in'],
+          'Twitter/X': ['twitter', 'x.com', 'x '],
+          'Telegram': ['telegram', 'tg'],
+          'WhatsApp': ['whatsapp', 'wa'],
+        };
+
+        // Try keyword matching
+        for (const [platform, keywords] of Object.entries(platformKeywords)) {
+          if (keywords.some(keyword => searchText.includes(keyword))) {
+            socialMediaPlatforms[platform] = (socialMediaPlatforms[platform] || 0) + 1;
+            platformFound = true;
+            break;
+          }
+        }
+
+        // If still not found, add to "Digər"
+        if (!platformFound) {
+          if (!socialMediaPlatforms['Digər']) {
+            socialMediaPlatforms['Digər'] = 0;
+          }
+          socialMediaPlatforms['Digər'] = (socialMediaPlatforms['Digər'] || 0) + 1;
+        }
+      });
+
+      // Filter out platforms with 0 customers and sort
+      const socialMediaStats = Object.entries(socialMediaPlatforms)
+        .filter(([_, value]) => value > 0)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+      // Calculate TV channel statistics
+      const tvCustomers = customers.filter(c => 
+        c.ad_source?.toLowerCase() === 'tv'
+      );
+      
+      const tvChannels: Record<string, number> = {};
+      
+      tvCustomers.forEach(customer => {
+        // Use tv_channel column
+        if (customer.tv_channel && customer.tv_channel.trim()) {
+          const channel = customer.tv_channel.trim();
+          tvChannels[channel] = (tvChannels[channel] || 0) + 1;
+        } else {
+          // If no channel specified, add to "Digər"
+          tvChannels['Digər'] = (tvChannels['Digər'] || 0) + 1;
+        }
+      });
+
+      // Filter out channels with 0 customers and sort
+      const tvChannelStats = Object.entries(tvChannels)
+        .filter(([_, value]) => value > 0)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
       setAnalyticsData({
         modelStats,
         sourceStats,
@@ -192,10 +342,16 @@ const Analytics = () => {
         ageGroupStats,
         genderStats,
         salonStats,
-        salesManagerStats
+        salesManagerStats,
+        socialMediaStats,
+        tvChannelStats
       });
     } catch (error) {
-      console.error('Error fetching analytics data:', error);
+      handleError(error, {
+        action: 'fetchAnalyticsData',
+        component: 'Analytics',
+        metadata: { timeRange },
+      });
     } finally {
       setLoading(false);
     }
@@ -231,6 +387,11 @@ const Analytics = () => {
         case 'sales_manager':
           query = query.eq('sales_manager', data.name);
           break;
+        case 'social_media':
+          // Filter for social media customers matching the platform
+          const platformName = data.name.toLowerCase();
+          query = query.or(`ad_source.ilike.%${platformName}%,notes.ilike.%${platformName}%`);
+          break;
       }
       
       const { data: customers, error } = await query;
@@ -238,8 +399,11 @@ const Analytics = () => {
       
       setDrillDownData(customers || []);
     } catch (error) {
-      console.error('Error fetching drill-down data:', error);
-      toast.error('Məlumatlar yüklənə bilmədi');
+      handleError(error, {
+        action: 'fetchDrillDownData',
+        component: 'Analytics',
+        metadata: { chartType, dataName: data.name },
+      });
     }
   };
 
@@ -551,6 +715,141 @@ const Analytics = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Social Media Breakdown - Only show if there are social media customers */}
+      {analyticsData.socialMediaStats.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+        >
+          <Card className="card-elevated hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-primary" />
+                Sosial Media Platformaları
+                <Badge variant="outline" className="ml-auto">
+                  {analyticsData.socialMediaStats.reduce((sum, stat) => sum + stat.value, 0)} müştəri
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Sosial media mənbələrindən gələn müştərilərin platforma üzrə bölgüsü
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={analyticsData.socialMediaStats}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    contentStyle={{
+                      background: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#8b5cf6"
+                    onClick={(data) => handleChartClick(data, 'social_media')}
+                    className="cursor-pointer hover:opacity-80"
+                    radius={[8, 8, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+              
+              {/* Summary stats */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {analyticsData.socialMediaStats.slice(0, 4).map((stat) => (
+                  <div key={stat.name} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">{stat.name}</p>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {((stat.value / analyticsData.socialMediaStats.reduce((sum, s) => sum + s.value, 0)) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* TV Channel Breakdown - Only show if there are TV customers */}
+      {analyticsData.tvChannelStats.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          <Card className="card-elevated hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tv className="w-5 h-5 text-primary" />
+                TV Kanalları
+                <Badge variant="outline" className="ml-auto">
+                  {analyticsData.tvChannelStats.reduce((sum, stat) => sum + stat.value, 0)} müştəri
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                TV reklamından gələn müştərilərin kanal üzrə bölgüsü
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={analyticsData.tvChannelStats}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    interval={0}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value: number) => [`${value} müştəri`, 'Say']}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#f97316"
+                    radius={[4, 4, 0, 0]}
+                  >
+                    {analyticsData.tvChannelStats.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              
+              {/* Summary stats */}
+              <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {analyticsData.tvChannelStats.slice(0, 4).map((stat) => (
+                  <div key={stat.name} className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">{stat.name}</p>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {((stat.value / analyticsData.tvChannelStats.reduce((sum, s) => sum + s.value, 0)) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </motion.div>
   );
 };

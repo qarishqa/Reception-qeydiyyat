@@ -30,6 +30,8 @@ import UserManagement from '@/components/UserManagement';
 import InteractiveKPICard from '@/components/InteractiveKPICard';
 import DashboardNotifications from '@/components/DashboardNotifications';
 import QuickActions from '@/components/QuickActions';
+import { handleError } from '@/lib/errorHandler';
+import { checkIsDeletedColumnExists } from '@/lib/supabaseHelpers';
 
 interface DashboardStats {
   totalCustomers: number;
@@ -41,6 +43,7 @@ const Dashboard = () => {
   const { profile, signOut, isAdmin, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [tabRefreshKey, setTabRefreshKey] = useState(0); // Key for forcing component refresh
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
@@ -48,6 +51,26 @@ const Dashboard = () => {
     monthlyCustomers: 0
   });
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // Handle tab click - refresh if clicking the same tab
+  const handleTabClick = (tab: string) => {
+    if (activeTab === tab) {
+      // Same tab clicked - refresh by updating key and re-setting activeTab
+      setTabRefreshKey(prev => prev + 1);
+      // Force re-render by temporarily changing and then restoring activeTab
+      setActiveTab('');
+      setTimeout(() => {
+        setActiveTab(tab);
+        // Also refresh stats for overview tab
+        if (tab === 'overview') {
+          fetchStats();
+        }
+      }, 0);
+    } else {
+      // Different tab - just switch
+      setActiveTab(tab);
+    }
+  };
 
 
   useEffect(() => {
@@ -63,31 +86,44 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
+      const hasIsDeletedColumn = await checkIsDeletedColumnExists();
+
+      // Build filter function
+      const applyFilter = (query: any) => {
+        if (hasIsDeletedColumn) {
+          return query.eq('is_deleted', false);
+        } else {
+          return query
+            .not('full_name', 'like', '[DELETED%')
+            .not('age_group', 'eq', '[DELETED]');
+        }
+      };
+
       // Total customers (excluding deleted ones)
-      const { count: totalCustomers } = await supabase
+      let totalQuery = supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true })
-        .not('full_name', 'like', '[DELETED%')
-        .not('age_group', 'eq', '[DELETED]');
+        .select('*', { count: 'exact', head: true });
+      totalQuery = applyFilter(totalQuery);
+      const { count: totalCustomers } = await totalQuery;
 
       // Today's customers (excluding deleted ones)
       const today = new Date().toISOString().split('T')[0];
-      const { count: todayCustomers } = await supabase
+      let todayQuery = supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .not('full_name', 'like', '[DELETED%')
-        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', `${today}T00:00:00.000Z`)
         .lt('created_at', `${today}T23:59:59.999Z`);
+      todayQuery = applyFilter(todayQuery);
+      const { count: todayCustomers } = await todayQuery;
 
       // Monthly customers (excluding deleted ones)
       const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-      const { count: monthlyCustomers } = await supabase
+      let monthlyQuery = supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .not('full_name', 'like', '[DELETED%')
-        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', firstDayOfMonth);
+      monthlyQuery = applyFilter(monthlyQuery);
+      const { count: monthlyCustomers } = await monthlyQuery;
 
       setStats({
         totalCustomers: totalCustomers || 0,
@@ -95,7 +131,11 @@ const Dashboard = () => {
         monthlyCustomers: monthlyCustomers || 0
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      handleError(error, {
+        action: 'fetchStats',
+        component: 'Dashboard',
+        userId: user?.id,
+      }, false); // Don't show toast for stats as it's not critical
     } finally {
       setStatsLoading(false);
     }
@@ -106,7 +146,11 @@ const Dashboard = () => {
       await signOut();
       navigate('/auth');
     } catch (error) {
-      console.error('Çıxış zamanı xəta:', error);
+      handleError(error, {
+        action: 'signOut',
+        component: 'Dashboard',
+        userId: user?.id,
+      });
       // Even if there's an error, try to navigate away
       navigate('/auth');
     }
@@ -184,7 +228,7 @@ const Dashboard = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex space-x-8">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabClick('overview')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
                 activeTab === 'overview'
                   ? 'border-primary text-primary'
@@ -197,7 +241,7 @@ const Dashboard = () => {
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('customers')}
+              onClick={() => handleTabClick('customers')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
                 activeTab === 'customers'
                   ? 'border-primary text-primary'
@@ -212,7 +256,7 @@ const Dashboard = () => {
             {isAdmin && (
               <>
                 <button
-                  onClick={() => setActiveTab('analytics')}
+                  onClick={() => handleTabClick('analytics')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
                     activeTab === 'analytics'
                       ? 'border-primary text-primary'
@@ -225,7 +269,7 @@ const Dashboard = () => {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('form-management')}
+                  onClick={() => handleTabClick('form-management')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
                     activeTab === 'form-management'
                       ? 'border-primary text-primary'
@@ -238,7 +282,7 @@ const Dashboard = () => {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('user-management')}
+                  onClick={() => handleTabClick('user-management')}
                   className={`py-4 px-1 border-b-2 font-medium text-sm transition-smooth ${
                     activeTab === 'user-management'
                       ? 'border-primary text-primary'
@@ -259,7 +303,7 @@ const Dashboard = () => {
             <div className="md:hidden py-4 space-y-2">
               <button
                 onClick={() => {
-                  setActiveTab('overview');
+                  handleTabClick('overview');
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
@@ -275,7 +319,7 @@ const Dashboard = () => {
               </button>
               <button
                 onClick={() => {
-                  setActiveTab('customers');
+                  handleTabClick('customers');
                   setIsMobileMenuOpen(false);
                 }}
                 className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
@@ -293,7 +337,7 @@ const Dashboard = () => {
                 <>
                   <button
                     onClick={() => {
-                      setActiveTab('analytics');
+                      handleTabClick('analytics');
                       setIsMobileMenuOpen(false);
                     }}
                     className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
@@ -309,7 +353,7 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('form-management');
+                      handleTabClick('form-management');
                       setIsMobileMenuOpen(false);
                     }}
                     className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
@@ -325,7 +369,7 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={() => {
-                      setActiveTab('user-management');
+                      handleTabClick('user-management');
                       setIsMobileMenuOpen(false);
                     }}
                     className={`w-full text-left py-3 px-4 rounded-lg font-medium text-sm transition-smooth ${
@@ -434,20 +478,20 @@ const Dashboard = () => {
             {/* Quick Actions */}
             <QuickActions
               onAddCustomer={() => setActiveTab('add-customer')}
-              onViewAnalytics={() => setActiveTab('analytics')}
-              onViewCustomers={() => setActiveTab('customers')}
+              onViewAnalytics={() => handleTabClick('analytics')}
+              onViewCustomers={() => handleTabClick('customers')}
             />
           </motion.div>
         )}
 
-        {activeTab === 'customers' && <CustomerList onStatsUpdate={fetchStats} />}
+        {activeTab === 'customers' && <CustomerList key={`customers-${tabRefreshKey}`} onStatsUpdate={fetchStats} />}
         {activeTab === 'add-customer' && <CustomerForm onSuccess={() => {
           fetchStats();
           setActiveTab('customers');
         }} />}
-        {activeTab === 'analytics' && isAdmin && <Analytics />}
-        {activeTab === 'form-management' && isAdmin && <FormManagement />}
-        {activeTab === 'user-management' && isAdmin && <UserManagement />}
+        {activeTab === 'analytics' && isAdmin && <Analytics key={`analytics-${tabRefreshKey}`} />}
+        {activeTab === 'form-management' && isAdmin && <FormManagement key={`form-management-${tabRefreshKey}`} />}
+        {activeTab === 'user-management' && isAdmin && <UserManagement key={`user-management-${tabRefreshKey}`} />}
       </main>
     </div>
   );

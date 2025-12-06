@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Phone, Search, Save, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { handleError, ErrorContext } from '@/lib/errorHandler';
+import { checkIsDeletedColumnExists } from '@/lib/supabaseHelpers';
 
 interface FormQuestion {
   id: string;
@@ -28,11 +30,11 @@ interface Customer {
   id: string;
   phone: string;
   full_name: string;
-  email: string;
   age_group: string;
   gender: string;
   interested_model: string;
   ad_source: string;
+  social_media_platform?: string;
   salon: string;
   sales_manager: string;
   status: string;
@@ -49,7 +51,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     phone: '',
     full_name: '',
-    email: '',
     age_group: '',
     gender: '',
     interested_model: '',
@@ -81,20 +82,40 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       if (error) throw error;
       setFormQuestions(data || []);
     } catch (error) {
-      console.error('Error fetching form questions:', error);
+      handleError(error, {
+        action: 'fetchFormQuestions',
+        component: 'CustomerForm',
+      }, false); // Don't show toast for form questions as it's not critical
     }
   };
 
   const searchCustomerByPhone = async (phone: string) => {
     if (phone.length < 10) return;
     
+    // Clean phone number
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) return;
+    
     setSearching(true);
     try {
-      const { data, error } = await supabase
+      // Check if is_deleted column exists
+      const hasIsDeletedColumn = await checkIsDeletedColumnExists();
+      
+      let query = supabase
         .from('customers')
         .select('*')
-        .eq('phone', phone)
-        .maybeSingle();
+        .eq('phone', cleanPhone);
+      
+      // Apply soft delete filter
+      if (hasIsDeletedColumn) {
+        query = query.eq('is_deleted', false);
+      } else {
+        query = query
+          .not('full_name', 'like', '[DELETED%')
+          .not('age_group', 'eq', '[DELETED]');
+      }
+      
+      const { data, error } = await query.maybeSingle();
       
       if (error) throw error;
       
@@ -104,7 +125,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         setFormData({
           phone: customerData.phone,
           full_name: customerData.full_name,
-          email: customerData.email || '',
           age_group: customerData.age_group || '',
           gender: customerData.gender || '',
           interested_model: customerData.interested_model || '',
@@ -121,7 +141,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         setFormData(prev => ({
           phone: prev.phone,
           full_name: '',
-          email: '',
           age_group: '',
           gender: '',
           interested_model: '',
@@ -133,7 +152,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         }));
       }
     } catch (error) {
-      console.error('Error searching customer:', error);
+      handleError(error, {
+        action: 'searchCustomerByPhone',
+        component: 'CustomerForm',
+        metadata: { phone },
+      }, false); // Don't show toast for search errors
     } finally {
       setSearching(false);
     }
@@ -159,14 +182,165 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       if (!user) throw new Error('İstifadəçi tapılmadı');
       
       // Validate required fields
-      if (!formData.full_name) {
+      if (!formData.full_name || !formData.full_name.trim()) {
         throw new Error('Ad sahəsi mütləqdir');
       }
+      
+      if (!formData.phone || !formData.phone.trim()) {
+        throw new Error('Telefon nömrəsi mütləqdir');
+      }
+      
+      // Clean and validate phone number
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        throw new Error('Telefon nömrəsi ən azı 10 rəqəm olmalıdır');
+      }
 
-      const customerData = {
-        ...formData,
+      // Process ad_source - keep it as is
+      const finalAdSource = formData.ad_source?.trim() || '';
+      
+      // Extract social media platform from conditional question if ad_source is "Sosial şəbəkə"
+      let socialMediaPlatform: string | undefined = undefined;
+      
+      // Check if ad_source contains "sosial" or "şəbəkə" (case insensitive)
+      const adSourceLower = finalAdSource.toLowerCase();
+      const isSocialMedia = adSourceLower.includes('sosial') || 
+                           adSourceLower.includes('social') || 
+                           adSourceLower.includes('şəbəkə') ||
+                           adSourceLower.includes('sebeke');
+      
+      if (finalAdSource && isSocialMedia) {
+        // Find social media parent question (the "Reklam" question)
+        const socialMediaParentQuestion = formQuestions.find(q => 
+          q.question_text?.toLowerCase().includes('reklam') && 
+          q.options?.some(opt => {
+            const optLower = opt.toLowerCase();
+            return optLower.includes('sosial') || optLower.includes('şəbəkə');
+          })
+        );
+        
+        if (socialMediaParentQuestion) {
+          // Find conditional question (sub-question) specifically for social media
+          // The trigger_value should match the selected ad_source option
+          const socialMediaSubQuestion = formQuestions.find(q => 
+            q.parent_question_id === socialMediaParentQuestion.id &&
+            (q.trigger_value?.toLowerCase().includes('sosial') || 
+             q.trigger_value?.toLowerCase().includes('şəbəkə'))
+          );
+          
+          if (socialMediaSubQuestion) {
+            // Get the platform from dynamicAnswers
+            const platform = dynamicAnswers[socialMediaSubQuestion.id];
+            console.log('Social media sub-question found:', {
+              subQuestionId: socialMediaSubQuestion.id,
+              subQuestionText: socialMediaSubQuestion.question_text,
+              triggerValue: socialMediaSubQuestion.trigger_value,
+              dynamicAnswers: dynamicAnswers,
+              platform: platform
+            });
+            
+            if (platform && platform.trim()) {
+              socialMediaPlatform = platform.trim();
+              console.log('Social media platform extracted:', { ad_source: finalAdSource, platform: socialMediaPlatform });
+            } else {
+              console.warn('Social media selected but no platform found in dynamicAnswers:', {
+                subQuestionId: socialMediaSubQuestion.id,
+                dynamicAnswers: dynamicAnswers
+              });
+            }
+          } else {
+            console.warn('Social media parent question found but no matching sub-question found', {
+              parentId: socialMediaParentQuestion.id,
+              allSubQuestions: formQuestions.filter(q => q.parent_question_id === socialMediaParentQuestion.id)
+            });
+          }
+        } else {
+          console.warn('No social media parent question found');
+        }
+      }
+
+      // Extract TV channel from conditional question if ad_source is "TV"
+      let tvChannel: string | undefined = undefined;
+      
+      if (finalAdSource && finalAdSource.toLowerCase() === 'tv') {
+        // Find TV parent question (the "Reklam" question)
+        const tvParentQuestion = formQuestions.find(q => 
+          q.question_text?.toLowerCase().includes('reklam') && 
+          q.options?.some(opt => opt.toLowerCase() === 'tv')
+        );
+        
+        if (tvParentQuestion) {
+          // Find conditional question for TV channel
+          const tvSubQuestion = formQuestions.find(q => 
+            q.parent_question_id === tvParentQuestion.id &&
+            q.trigger_value?.toLowerCase() === 'tv'
+          );
+          
+          if (tvSubQuestion) {
+            const channel = dynamicAnswers[tvSubQuestion.id];
+            
+            if (channel && channel.trim()) {
+              tvChannel = channel.trim();
+              console.log('TV channel extracted:', { ad_source: finalAdSource, channel: tvChannel });
+            } else {
+              console.warn('TV selected but no channel found in dynamicAnswers:', {
+                subQuestionId: tvSubQuestion.id,
+                dynamicAnswers: dynamicAnswers
+              });
+            }
+          }
+        }
+      }
+
+      // Process notes - add any other conditional answers that don't have a direct field mapping
+      let finalNotes = formData.notes?.trim() || '';
+      const additionalNotes: string[] = [];
+      
+      // Collect all conditional answers that aren't mapped to fields
+      formQuestions.forEach(question => {
+        if (question.parent_question_id && dynamicAnswers[question.id]) {
+          const parentQuestion = formQuestions.find(q => q.id === question.parent_question_id);
+          if (parentQuestion) {
+            // Check if this conditional answer is already handled (e.g., social media platform)
+            const isSocialMediaPlatform = parentQuestion.question_text?.toLowerCase().includes('reklam') &&
+              parentQuestion.options?.some(opt => {
+                const optLower = opt.toLowerCase();
+                return optLower.includes('sosial') || optLower.includes('şəbəkə') || optLower.includes('social');
+              });
+            
+            if (!isSocialMediaPlatform) {
+              // Add to notes if not already in notes
+              const answerText = `${question.question_text}: ${dynamicAnswers[question.id]}`;
+              if (!finalNotes.includes(answerText)) {
+                additionalNotes.push(answerText);
+              }
+            }
+          }
+        }
+      });
+      
+      if (additionalNotes.length > 0) {
+        finalNotes = finalNotes 
+          ? `${finalNotes}\n\n${additionalNotes.join('\n')}`
+          : additionalNotes.join('\n');
+      }
+
+      // Prepare customer data, excluding empty strings and ensuring required fields
+      const customerData: any = {
+        phone: cleanPhone, // Use cleaned phone number
+        full_name: formData.full_name.trim(),
+        created_by: user.id,
         status: formData.status as 'new_inquiry' | 'test_drive_scheduled' | 'negotiating' | 'sold' | 'lost',
-        created_by: user.id
+        // Only include fields that have values
+        ...(formData.age_group && formData.age_group.trim() && { age_group: formData.age_group.trim() }),
+        ...(formData.gender && formData.gender.trim() && { gender: formData.gender.trim() }),
+        ...(formData.interested_model && formData.interested_model.trim() && { interested_model: formData.interested_model.trim() }),
+        ...(finalAdSource && { ad_source: finalAdSource }),
+        ...(socialMediaPlatform && { social_media_platform: socialMediaPlatform }),
+        ...(tvChannel && { tv_channel: tvChannel }),
+        ...(formData.salon && formData.salon.trim() && { salon: formData.salon.trim() }),
+        ...(formData.sales_manager && formData.sales_manager.trim() && { sales_manager: formData.sales_manager.trim() }),
+        ...(finalNotes && { notes: finalNotes }),
       };
 
       if (existingCustomer) {
@@ -179,21 +353,74 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
         if (error) throw error;
         toast.success('Müştəri məlumatları uğurla yeniləndi!');
       } else {
-        // Insert new customer
-        const { error } = await supabase
+        // Check if customer with this phone already exists (including deleted ones)
+        const { data: existingPhoneCheck } = await supabase
           .from('customers')
-          .insert([customerData]);
+          .select('id, is_deleted, full_name')
+          .eq('phone', cleanPhone)
+          .maybeSingle();
         
-        if (error) throw error;
-        toast.success('Yeni müştəri uğurla əlavə edildi!');
+        if (existingPhoneCheck) {
+          // If customer exists and is not deleted, treat as update
+          const hasIsDeletedColumn = await checkIsDeletedColumnExists();
+          const isDeleted = hasIsDeletedColumn 
+            ? existingPhoneCheck.is_deleted 
+            : existingPhoneCheck.full_name?.includes('[DELETED');
+          
+          if (!isDeleted) {
+            // Customer exists and is not deleted - update instead
+            const { error: updateError } = await supabase
+              .from('customers')
+              .update(customerData)
+              .eq('id', existingPhoneCheck.id);
+            
+            if (updateError) throw updateError;
+            toast.success('Müştəri məlumatları uğurla yeniləndi! (Telefon nömrəsi artıq mövcuddur)');
+          } else {
+            // Customer is deleted - restore it
+            const updateData = {
+              ...customerData,
+              ...(hasIsDeletedColumn ? { is_deleted: false, deleted_at: null } : {})
+            };
+            
+            const { error: restoreError } = await supabase
+              .from('customers')
+              .update(updateData)
+              .eq('id', existingPhoneCheck.id);
+            
+            if (restoreError) throw restoreError;
+            toast.success('Silinmiş müştəri bərpa edildi və yeniləndi!');
+          }
+        } else {
+          // Insert new customer
+          const { data: insertedData, error } = await supabase
+            .from('customers')
+            .insert([customerData])
+            .select();
+          
+          if (error) {
+            console.error('Insert error details:', error);
+            // Check if it's a unique constraint error
+            if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
+              throw new Error('Bu telefon nömrəsi ilə müştəri artıq mövcuddur');
+            }
+            throw error;
+          }
+          
+          if (!insertedData || insertedData.length === 0) {
+            throw new Error('Müştəri əlavə edildi, amma məlumat qayıdılmadı');
+          }
+          
+          console.log('Customer inserted successfully:', insertedData);
+          toast.success('Yeni müştəri uğurla əlavə edildi!');
+        }
       }
 
       // Reset form
-      setFormData({
-        phone: '',
-        full_name: '',
-        email: '',
-        age_group: '',
+        setFormData({
+          phone: '',
+          full_name: '',
+          age_group: '',
         gender: '',
         interested_model: '',
         ad_source: '',
@@ -207,8 +434,16 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
       onSuccess();
       
     } catch (error: any) {
-      setError(error.message);
-      toast.error(error.message);
+      const errorMessage = handleError(error, {
+        action: existingCustomer ? 'updateCustomer' : 'createCustomer',
+        component: 'CustomerForm',
+        userId: user?.id,
+        metadata: { 
+          customerId: existingCustomer?.id,
+          hasPhone: !!formData.phone,
+        },
+      });
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -222,9 +457,8 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                      question.question_text.toLowerCase().includes('salon') ? 'salon' :
                      question.question_text.toLowerCase().includes('satış') ? 'sales_manager' : '';
     
-    // Check if this is a phone or email field
+    // Check if this is a phone field
     const isPhoneField = question.question_text.toLowerCase().includes('telefon');
-    const isEmailField = question.question_text.toLowerCase().includes('email');
     
     // Handle conditional questions
     if (question.parent_question_id) {
@@ -252,28 +486,13 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
 
     // Render different input types based on question type
     const renderInput = () => {
-      // Force phone and email fields to be text inputs
+      // Force phone fields to be text inputs
       if (isPhoneField) {
         return (
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               type="tel"
-              value={currentValue || ''}
-              onChange={(e) => handleValueChange(e.target.value)}
-              placeholder={`${question.question_text} daxil edin`}
-              className="pl-10 transition-smooth focus:shadow-primary"
-            />
-          </div>
-        );
-      }
-      
-      if (isEmailField) {
-        return (
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              type="email"
               value={currentValue || ''}
               onChange={(e) => handleValueChange(e.target.value)}
               placeholder={`${question.question_text} daxil edin`}
@@ -510,20 +729,6 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ onSuccess }) => {
                 />
               </div>
 
-              <div className="form-field">
-                <Label htmlFor="email" className="form-label">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="customer@example.com"
-                    className="pl-10 transition-smooth focus:shadow-primary"
-                  />
-                </div>
-              </div>
             </div>
 
 

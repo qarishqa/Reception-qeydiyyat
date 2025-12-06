@@ -20,15 +20,18 @@ export type Database = {
           age_group: string | null
           created_at: string | null
           created_by: string
-          email: string | null
+          deleted_at: string | null
           full_name: string
           gender: string | null
           id: string
           interested_model: string | null
+          is_deleted: boolean
           notes: string | null
           phone: string
           salon: string | null
           sales_manager: string | null
+          social_media_platform: string | null
+          tv_channel: string | null
           status: Database["public"]["Enums"]["customer_status"] | null
           updated_at: string | null
         }
@@ -37,15 +40,17 @@ export type Database = {
           age_group?: string | null
           created_at?: string | null
           created_by: string
-          email?: string | null
+          deleted_at?: string | null
           full_name: string
           gender?: string | null
           id?: string
           interested_model?: string | null
+          is_deleted?: boolean
           notes?: string | null
           phone: string
           salon?: string | null
           sales_manager?: string | null
+          tv_channel?: string | null
           status?: Database["public"]["Enums"]["customer_status"] | null
           updated_at?: string | null
         }
@@ -54,15 +59,18 @@ export type Database = {
           age_group?: string | null
           created_at?: string | null
           created_by?: string
-          email?: string | null
+          deleted_at?: string | null
           full_name?: string
           gender?: string | null
           id?: string
           interested_model?: string | null
+          is_deleted?: boolean
           notes?: string | null
           phone?: string
           salon?: string | null
           sales_manager?: string | null
+          social_media_platform?: string | null
+          tv_channel?: string | null
           status?: Database["public"]["Enums"]["customer_status"] | null
           updated_at?: string | null
         }

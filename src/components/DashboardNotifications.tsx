@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Bell, X, User, Car, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { checkIsDeletedColumnExists } from '@/lib/supabaseHelpers';
 
 interface Notification {
   id: string;
@@ -30,13 +31,24 @@ const DashboardNotifications: React.FC = () => {
     try {
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       
-      const { data: recentCustomers, error } = await supabase
+      const hasIsDeletedColumn = await checkIsDeletedColumnExists();
+
+      let query = supabase
         .from('customers')
         .select('full_name, created_at')
-        .not('full_name', 'like', '[DELETED%')
-        .not('age_group', 'eq', '[DELETED]')
         .gte('created_at', fifteenMinutesAgo)
         .order('created_at', { ascending: false });
+      
+      // Apply delete filter based on column existence
+      if (hasIsDeletedColumn) {
+        query = query.eq('is_deleted', false);
+      } else {
+        query = query
+          .not('full_name', 'like', '[DELETED%')
+          .not('age_group', 'eq', '[DELETED]');
+      }
+      
+      const { data: recentCustomers, error } = await query;
 
       if (error) throw error;
 
