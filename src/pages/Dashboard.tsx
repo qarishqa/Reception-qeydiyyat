@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,16 +22,28 @@ import {
   X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import CustomerForm from '@/components/CustomerForm';
-import CustomerList from '@/components/CustomerList';
-import Analytics from '@/components/Analytics';
-import FormManagement from '@/components/FormManagement';
-import UserManagement from '@/components/UserManagement';
 import InteractiveKPICard from '@/components/InteractiveKPICard';
 import DashboardNotifications from '@/components/DashboardNotifications';
 import QuickActions from '@/components/QuickActions';
 import { handleError } from '@/lib/errorHandler';
 import { checkIsDeletedColumnExists } from '@/lib/supabaseHelpers';
+
+// Lazy load heavy components
+const CustomerForm = lazy(() => import('@/components/CustomerForm'));
+const CustomerList = lazy(() => import('@/components/CustomerList'));
+const Analytics = lazy(() => import('@/components/Analytics'));
+const FormManagement = lazy(() => import('@/components/FormManagement'));
+const UserManagement = lazy(() => import('@/components/UserManagement'));
+
+// Loading component
+const ComponentLoader = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="text-center">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-muted-foreground">Yüklənir...</p>
+    </div>
+  </div>
+);
 
 interface DashboardStats {
   totalCustomers: number;
@@ -484,14 +496,34 @@ const Dashboard = () => {
           </motion.div>
         )}
 
-        {activeTab === 'customers' && <CustomerList key={`customers-${tabRefreshKey}`} onStatsUpdate={fetchStats} />}
-        {activeTab === 'add-customer' && <CustomerForm onSuccess={() => {
-          fetchStats();
-          setActiveTab('customers');
-        }} />}
-        {activeTab === 'analytics' && isAdmin && <Analytics key={`analytics-${tabRefreshKey}`} />}
-        {activeTab === 'form-management' && isAdmin && <FormManagement key={`form-management-${tabRefreshKey}`} />}
-        {activeTab === 'user-management' && isAdmin && <UserManagement key={`user-management-${tabRefreshKey}`} />}
+        {activeTab === 'customers' && (
+          <Suspense fallback={<ComponentLoader />}>
+            <CustomerList key={`customers-${tabRefreshKey}`} onStatsUpdate={fetchStats} />
+          </Suspense>
+        )}
+        {activeTab === 'add-customer' && (
+          <Suspense fallback={<ComponentLoader />}>
+            <CustomerForm onSuccess={() => {
+              fetchStats();
+              setActiveTab('customers');
+            }} />
+          </Suspense>
+        )}
+        {activeTab === 'analytics' && isAdmin && (
+          <Suspense fallback={<ComponentLoader />}>
+            <Analytics key={`analytics-${tabRefreshKey}`} />
+          </Suspense>
+        )}
+        {activeTab === 'form-management' && isAdmin && (
+          <Suspense fallback={<ComponentLoader />}>
+            <FormManagement key={`form-management-${tabRefreshKey}`} />
+          </Suspense>
+        )}
+        {activeTab === 'user-management' && isAdmin && (
+          <Suspense fallback={<ComponentLoader />}>
+            <UserManagement key={`user-management-${tabRefreshKey}`} />
+          </Suspense>
+        )}
       </main>
     </div>
   );
